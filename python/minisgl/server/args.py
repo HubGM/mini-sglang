@@ -193,6 +193,21 @@ def parse_args(args: List[str], run_shell: bool = False) -> Tuple[ServerArgs, bo
     )
 
     parser.add_argument(
+        "--scheduling-policy",
+        type=str,
+        default=ServerArgs.scheduling_policy,
+        choices=["upstream_default"],
+        help="The engine-level token scheduling policy.",
+    )
+
+    parser.add_argument(
+        "--scheduler-metrics-path",
+        type=str,
+        default=ServerArgs.scheduler_metrics_path,
+        help="Optional path for an atomic scheduler metrics summary.",
+    )
+
+    parser.add_argument(
         "--shell-mode",
         action="store_true",
         help="Run the server in shell mode.",

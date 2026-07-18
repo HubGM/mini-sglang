@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from typing import TYPE_CHECKING, List, NamedTuple, NoReturn, Set, Tuple, TypeAlias
 
 import torch
@@ -21,6 +22,11 @@ from .cache import CacheManager
 from .config import SchedulerConfig
 from .decode import DecodeManager
 from .io import SchedulerIOMixin
+from .policy import (
+    SchedulingContext,
+    SchedulingMetrics,
+    create_scheduling_policy,
+)
 from .prefill import ChunkedReq, PrefillManager
 from .table import TableManager
 
@@ -98,6 +104,10 @@ class Scheduler(SchedulerIOMixin):
         self.prefill_manager = PrefillManager(
             self.cache_manager, self.table_manager, self.decode_manager
         )
+        self.scheduling_policy = create_scheduling_policy(config.scheduling_policy)
+        self.scheduling_metrics = SchedulingMetrics(self.scheduling_policy.name)
+        self.scheduler_metrics_path = config.scheduler_metrics_path
+        self.current_batch_state: str | None = None
 
         self.tp_info = config.tp_info
         self.finished_reqs: Set[Req] = set()
@@ -201,11 +211,22 @@ class Scheduler(SchedulerIOMixin):
         )
 
     def _schedule_next_batch(self) -> ForwardInput | None:
-        # TODO: support other policies: e.g. DECODE first
-        batch = (
-            self.prefill_manager.schedule_next_batch(self.prefill_budget)
-            or self.decode_manager.schedule_next_batch()
+        context = SchedulingContext(
+            waiting_requests=tuple(self.prefill_manager.pending_list),
+            running_requests=tuple(self.decode_manager.running_reqs),
+            available_token_budget=self.prefill_budget,
+            available_kv_blocks=self.cache_manager.available_size,
+            current_batch_state=self.current_batch_state,
+            current_timestamp_ns=time.monotonic_ns(),
         )
+        decision = self.scheduling_policy.select(
+            context,
+            self.prefill_manager.schedule_next_batch,
+            self.decode_manager.schedule_next_batch,
+        )
+        self.scheduling_metrics.record(context, decision)
+        batch = decision.batch
+        self.current_batch_state = batch.phase if batch else None
         return self._prepare_batch(batch) if batch else None
 
     def _load_token_ids(self, input: ForwardInput) -> None:
@@ -281,4 +302,8 @@ class Scheduler(SchedulerIOMixin):
     def shutdown(self) -> None:
         torch.cuda.synchronize(self.device)
         self.sync_all_ranks()
+        metrics = self.scheduling_metrics.snapshot()
+        logger.info_rank0("Scheduler policy metrics: %s", metrics)
+        if self.scheduler_metrics_path and self.tp_info.is_primary():
+            self.scheduling_metrics.write_json(self.scheduler_metrics_path)
         self.engine.shutdown()

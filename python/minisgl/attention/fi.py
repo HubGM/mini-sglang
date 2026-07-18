@@ -127,15 +127,19 @@ class FlashInferBackend(BaseAttnBackend):
         self.graph_wrappers: Dict[int, CUDAGraphBatchDecodeWithPagedKVCacheWrapper] = {}
         self.capture: FICaptureData | None = None
         self.page_table = page_table
+        self.last_event = torch.cuda.Event()
+        self.last_event.record()
 
-    @staticmethod
-    def _initialize_metadata_once(metadata: FIMetadata) -> None:
+    def _initialize_metadata_once(self, metadata: FIMetadata) -> None:
         if metadata.initialized:
             return
 
         from flashinfer import BatchDecodeWithPagedKVCacheWrapper
 
         metadata.initialized = True
+        # Backport of upstream 20fcd7f: FlashInfer planning reuses a pinned host
+        # staging buffer, so the previous asynchronous H2D copy must finish first.
+        self.last_event.synchronize()
         if isinstance(metadata.wrapper, BatchDecodeWithPagedKVCacheWrapper):
             metadata.wrapper.plan(
                 indptr=metadata.cu_seqlens_k_cpu,
@@ -169,6 +173,7 @@ class FlashInferBackend(BaseAttnBackend):
                 non_blocking=True,
                 causal=True,
             )
+        self.last_event.record()
 
     def _get_ones_cpu(self, bs: int) -> torch.Tensor:
         if bs <= len(self.cached_ones_cpu):
