@@ -112,3 +112,6 @@ class DetokenizeManager:
                 del self.decode_map[msg.uid]
 
         return incremental_strs
+
+    def abort(self, uid: int) -> None:
+        self.decode_map.pop(uid, None)

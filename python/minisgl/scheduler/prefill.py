@@ -121,6 +121,20 @@ class PrefillManager:
     def add_one_req(self, req: UserMsg) -> None:
         self.pending_list.append(PendingReq(req.uid, req.input_ids, req.sampling_params))
 
+    def pop_req(self, uid: int) -> Tuple[PendingReq | None, Req | None]:
+        for index, pending_req in enumerate(self.pending_list):
+            if pending_req.uid == uid:
+                self.pending_list.pop(index)
+                return pending_req, pending_req.chunked_req
+        return None, None
+
+    def abort_req(self, uid: int) -> Req | None:
+        _, chunked_req = self.pop_req(uid)
+        return chunked_req
+
+    def contains_uid(self, uid: int) -> bool:
+        return any(req.uid == uid for req in self.pending_list)
+
     def schedule_next_batch(self, prefill_budget: int) -> Batch | None:
         if len(self.pending_list) == 0:
             return None

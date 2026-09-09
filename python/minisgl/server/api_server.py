@@ -9,14 +9,15 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Literal, Tuple
 
 import uvicorn
-from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 from minisgl.core import SamplingParams
 from minisgl.env import ENV
 from minisgl.message import (
     BaseFrontendMsg,
     BaseTokenizerMsg,
     BatchFrontendMsg,
+    AbortMsg,
     TokenizeMsg,
     UserReply,
 )
@@ -27,6 +28,7 @@ from pydantic import BaseModel, Field
 from starlette.background import BackgroundTask
 
 from .args import ServerArgs
+from .health import BackendSupervisor
 
 logger = init_logger(__name__, "FrontendAPI")
 
@@ -80,6 +82,7 @@ class OpenAICompletionRequest(BaseModel):
     frequency_penalty: float = 0.0
 
     ignore_eos: bool = False
+    deadline_ms: float | None = None
 
 
 class ModelCard(BaseModel):
@@ -96,6 +99,20 @@ class ModelList(BaseModel):
 
 
 @dataclass
+class FrontendRequestState:
+    completed: bool = False
+    cancel_sent: bool = False
+    sse_stop_sent: bool = False
+    terminal_enqueued: bool = False
+
+    def claim_sse_stop(self) -> bool:
+        if self.sse_stop_sent:
+            return False
+        self.sse_stop_sent = True
+        return True
+
+
+@dataclass
 class FrontendManager:
     config: ServerArgs
     send_tokenizer: ZmqAsyncPushQueue[BaseTokenizerMsg]
@@ -104,25 +121,73 @@ class FrontendManager:
     initialized: bool = False
     ack_map: Dict[int, List[UserReply]] = field(default_factory=dict)
     event_map: Dict[int, asyncio.Event] = field(default_factory=dict)
+    request_states: Dict[int, FrontendRequestState] = field(default_factory=dict)
+    supervisor: BackendSupervisor | None = None
+    listener_task: asyncio.Task | None = None
+    health_task: asyncio.Task | None = None
+
+    def readiness(self) -> dict:
+        if self.supervisor is None:
+            return {
+                "ready": False,
+                "accepting_requests": False,
+                "fatal_error": "backend_supervisor_unavailable",
+            }
+        return self.supervisor.snapshot().as_dict()
+
+    def require_ready(self) -> None:
+        snapshot = self.readiness()
+        if not snapshot["ready"]:
+            raise HTTPException(status_code=503, detail=snapshot)
 
     def new_user(self) -> int:
+        self.require_ready()
         uid = self.uid_counter
         self.uid_counter += 1
         self.ack_map[uid] = []
         self.event_map[uid] = asyncio.Event()
+        self.request_states[uid] = FrontendRequestState()
         return uid
 
     async def listen(self):
         while True:
             msg = await self.recv_tokenizer.get()
             for msg in _unwrap_msg(msg):
-                assert msg.uid in self.ack_map
+                if msg.uid not in self.ack_map:
+                    continue
                 self.ack_map[msg.uid].append(msg)
                 self.event_map[msg.uid].set()
 
+    async def monitor_health(self):
+        while True:
+            await asyncio.sleep(0.1)
+            snapshot = self.readiness()
+            if snapshot["fatal_error"] is None and snapshot["ready"]:
+                continue
+            if snapshot["fatal_error"] is None:
+                continue
+            error = str(snapshot["fatal_error"])
+            for uid, state in tuple(self.request_states.items()):
+                if state.completed or uid not in self.ack_map:
+                    continue
+                if state.terminal_enqueued:
+                    continue
+                state.terminal_enqueued = True
+                self.ack_map[uid].append(
+                    UserReply(
+                        uid=uid,
+                        incremental_output="",
+                        finished=True,
+                        terminal_reason="failed",
+                        error=error,
+                    )
+                )
+                self.event_map[uid].set()
+
     def _create_listener_once(self):
         if not self.initialized:
-            asyncio.create_task(self.listen())
+            self.listener_task = asyncio.create_task(self.listen())
+            self.health_task = asyncio.create_task(self.monitor_health())
             self.initialized = True
 
     async def send_one(self, msg: BaseTokenizerMsg):
@@ -131,32 +196,39 @@ class FrontendManager:
 
     async def wait_for_ack(self, uid: int):
         event = self.event_map[uid]
+        try:
+            while True:
+                await event.wait()
+                event.clear()
 
-        while True:
-            await event.wait()
-            event.clear()
-
-            pending = self.ack_map[uid]
-            self.ack_map[uid] = []
-            ack = None
-            for ack in pending:
-                yield ack
-            if ack and ack.finished:
-                break
-
-        del self.ack_map[uid]
-        del self.event_map[uid]
+                pending = self.ack_map.get(uid, [])
+                self.ack_map[uid] = []
+                ack = None
+                for ack in pending:
+                    yield ack
+                if ack and ack.finished:
+                    state = self.request_states.get(uid)
+                    if state is not None:
+                        state.completed = True
+                    break
+        finally:
+            self.ack_map.pop(uid, None)
+            self.event_map.pop(uid, None)
 
     async def stream_generate(self, uid: int):
         async for ack in self.wait_for_ack(uid):
             yield f"data: {ack.incremental_output}\n".encode()
             if ack.finished:
                 break
-        yield "data: [DONE]\n".encode()
+        state = self.request_states.get(uid)
+        if state is None or state.claim_sse_stop():
+            yield "data: [DONE]\n".encode()
         logger.debug("Finished streaming response for user %s", uid)
 
     async def stream_chat_completions(self, uid: int):
         first_chunk = True
+        terminal_reason = "stop"
+        terminal_error = None
         async for ack in self.wait_for_ack(uid):
             delta = {}
             if first_chunk:
@@ -173,27 +245,73 @@ class FrontendManager:
             yield f"data: {json.dumps(chunk)}\n\n".encode()
 
             if ack.finished:
+                terminal_reason = (
+                    "stop" if ack.terminal_reason == "completed" else ack.terminal_reason
+                )
+                terminal_error = ack.error
                 break
 
-        # send final finish_reason
-        end_chunk = {
-            "id": f"cmpl-{uid}",
-            "object": "text_completion.chunk",
-            "choices": [{"delta": {}, "index": 0, "finish_reason": "stop"}],
-        }
-        yield f"data: {json.dumps(end_chunk)}\n\n".encode()
-        yield b"data: [DONE]\n\n"
+        state = self.request_states.get(uid)
+        if state is None or state.claim_sse_stop():
+            end_chunk = {
+                "id": f"cmpl-{uid}",
+                "object": "text_completion.chunk",
+                "choices": [
+                    {"delta": {}, "index": 0, "finish_reason": terminal_reason}
+                ],
+            }
+            if terminal_error is not None:
+                end_chunk["error"] = terminal_error
+            yield f"data: {json.dumps(end_chunk)}\n\n".encode()
+            yield b"data: [DONE]\n\n"
         logger.debug("Finished streaming response for user %s", uid)
 
-    async def abort_user(self, uid: int):
-        await asyncio.sleep(0.1)
+    async def stream_with_cancellation(self, generator, request: Request, uid: int):
+        completed = False
+        try:
+            async for chunk in generator:
+                if await request.is_disconnected():
+                    logger.info("Client disconnected for user %s", uid)
+                    raise asyncio.CancelledError
+                yield chunk
+            completed = True
+        finally:
+            if not completed and self.config.cancel_on_disconnect:
+                await asyncio.shield(
+                    self.abort_user(uid, reason="client_disconnected")
+                )
+                self.ack_map.pop(uid, None)
+                self.event_map.pop(uid, None)
+            self.request_states.pop(uid, None)
+
+    async def abort_user(
+        self, uid: int, *, reason: str = "client_cancelled"
+    ) -> bool:
+        state = self.request_states.get(uid)
+        if state is None or state.completed or state.cancel_sent:
+            return False
+        state.cancel_sent = True
+        state.terminal_enqueued = True
+        await self.send_one(AbortMsg(uid=uid, reason=reason))
         if uid in self.ack_map:
-            del self.ack_map[uid]
-        if uid in self.event_map:
-            del self.event_map[uid]
+            self.ack_map[uid].append(
+                UserReply(
+                    uid=uid,
+                    incremental_output="",
+                    finished=True,
+                    terminal_reason="cancelled",
+                )
+            )
+            self.event_map[uid].set()
         logger.warning("Aborting request for user %s", uid)
+        return True
 
     def shutdown(self):
+        for task in (self.listener_task, self.health_task):
+            if task is not None:
+                task.cancel()
+        if self.supervisor is not None:
+            self.supervisor.stop()
         self.send_tokenizer.stop()
         self.recv_tokenizer.stop()
 
@@ -211,7 +329,7 @@ app = FastAPI(title="MiniSGL API Server", version="0.0.1", lifespan=lifespan)
 
 
 @app.post("/generate")
-async def generate(req: GenerateRequest):
+async def generate(req: GenerateRequest, request: Request):
     logger.debug("Received generate request %s", req)
     state = get_global_state()
     uid = state.new_user()
@@ -226,13 +344,10 @@ async def generate(req: GenerateRequest):
         )
     )
 
-    async def _abort():
-        await state.abort_user(uid)
-
     return StreamingResponse(
-        state.stream_generate(uid),
+        state.stream_with_cancellation(state.stream_generate(uid), request, uid),
         media_type="text/event-stream",
-        background=BackgroundTask(lambda: _abort),
+        headers={"X-MiniSGL-Request-ID": str(uid)},
     )
 
 
@@ -242,7 +357,7 @@ async def v1_root():
 
 
 @app.post("/v1/chat/completions")
-async def v1_completions(req: OpenAICompletionRequest):
+async def v1_completions(req: OpenAICompletionRequest, request: Request):
     state = get_global_state()
     if req.messages:
         prompt = [msg.model_dump() for msg in req.messages]
@@ -259,24 +374,40 @@ async def v1_completions(req: OpenAICompletionRequest):
             sampling_params=SamplingParams(
                 ignore_eos=req.ignore_eos,
                 max_tokens=req.max_tokens,
+                deadline_ms=req.deadline_ms,
             ),
         )
     )
 
-    async def _abort():
-        await state.abort_user(uid)
-
     return StreamingResponse(
-        state.stream_chat_completions(uid),
+        state.stream_with_cancellation(
+            state.stream_chat_completions(uid), request, uid
+        ),
         media_type="text/event-stream",
-        background=BackgroundTask(lambda: _abort),
+        headers={"X-MiniSGL-Request-ID": str(uid)},
     )
 
 
 @app.get("/v1/models")
 async def available_models():
     state = get_global_state()
+    state.require_ready()
     return ModelList(data=[ModelCard(id=state.config.model_path, root=state.config.model_path)])
+
+
+@app.get("/health")
+@app.get("/ready")
+async def health():
+    state = get_global_state()
+    snapshot = state.readiness()
+    return JSONResponse(status_code=200 if snapshot["ready"] else 503, content=snapshot)
+
+
+@app.post("/v1/requests/{uid}/cancel")
+async def cancel_request(uid: int):
+    state = get_global_state()
+    accepted = await state.abort_user(uid, reason="explicit_cancel")
+    return {"uid": uid, "cancel_accepted": accepted}
 
 
 async def shell_completion(req: OpenAICompletionRequest):
@@ -381,7 +512,11 @@ async def shell():
             child.kill()
 
 
-def run_api_server(config: ServerArgs, start_backend: Callable[[], None], run_shell: bool) -> None:
+def run_api_server(
+    config: ServerArgs,
+    start_backend: Callable[[], BackendSupervisor],
+    run_shell: bool,
+) -> None:
     """
     Run the API server using uvicorn.
 
@@ -416,7 +551,7 @@ def run_api_server(config: ServerArgs, start_backend: Callable[[], None], run_sh
     )
 
     # start the backend here
-    start_backend()
+    _GLOBAL_STATE.supervisor = start_backend()
 
     logger.info(f"API server is ready to serve on {host}:{port}")
     if not run_shell:

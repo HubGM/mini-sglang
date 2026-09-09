@@ -63,11 +63,15 @@ class ZmqPullQueue(Generic[T]):
         self.socket.bind(addr) if create else self.socket.connect(addr)
         self.decoder = decoder
 
-    def get(self) -> T:
+    def get(self, timeout_ms: int | None = None) -> T | None:
+        if timeout_ms is not None and self.socket.poll(timeout=timeout_ms) == 0:
+            return None
         event = self.socket.recv()
         return self.decoder(msgpack.unpackb(event, raw=False))
 
-    def get_raw(self) -> bytes:
+    def get_raw(self, timeout_ms: int | None = None) -> bytes | None:
+        if timeout_ms is not None and self.socket.poll(timeout=timeout_ms) == 0:
+            return None
         return self.socket.recv()
 
     def decode(self, raw: bytes) -> T:

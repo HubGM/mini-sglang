@@ -60,8 +60,8 @@ correctness mismatch.
 
 ## CPU Tests
 
-The Engine Lab CPU suite has 15 passing tests and one strict expected failure
-covering:
+Prompt 6A began with 15 passing tests and one strict expected cancellation
+failure. Prompt 6B-0 now has 64 passing CPU tests and no xfail, covering:
 
 - policy prefill precedence and decode fallback;
 - no duplicate decode selection;
@@ -72,12 +72,16 @@ covering:
 - exception-safe context reset;
 - deterministic temperature-zero sampling;
 - decision latency/waiting/starvation telemetry;
-- benchmark percentiles, failure filtering, and repeated-run dispersion.
+- benchmark percentiles, failure filtering, and repeated-run dispersion;
+- lifecycle transitions and single-terminal behavior;
+- waiting, selected, running, disconnect, and duplicate cancellation;
+- KV/table ownership and exception cleanup;
+- policy validation, rollback, fallback, and circuit breaking;
+- scheduler heartbeat, fatal IPC, child exit, and bounded frontend failure.
 
-The strict expected failure is the cancellation path: pinned upstream defines
-`AbortMsg` in its tokenizer message module but does not export it or route it to
-the scheduler. If cancellation becomes wired, the strict `xfail` will turn
-into a test failure until it is replaced by a resource-release assertion.
+The former xfail is replaced by passing assertions that route `AbortMsg` to
+`AbortBackendMsg`, remove the request from scheduler state, and release only
+request-owned resources.
 
 Pinned upstream's original tests are not a usable single-GPU pytest gate:
 coverage flags require an absent plugin, several files execute during import,
@@ -191,24 +195,33 @@ GPU idle-gap and kernel-launch-gap distributions require timeline analysis of
 the saved traces; the summary tables alone do not support a precise idle
 percentage.
 
-## Prompt 6B Gate
+## Prompt 6B-0 Gate
 
 | Gate | State |
 | --- | --- |
 | Upstream-derived baseline stable after documented fix | PASS |
-| CPU Engine Lab tests | PASS, 15 tests; 1 strict expected cancellation failure |
-| Fixed-seed token IDs unchanged | PASS, 3/3 |
+| CPU Engine Lab tests | PASS, 64 tests; no xfail |
+| Fixed-seed token sequence hashes unchanged | PASS, 3/3 |
 | Three-repeat matrix | PASS, 30/30 VALID |
 | No observed client task leak | PASS for completed matrix |
 | Scheduler metrics available | PASS |
 | Waiting/starvation metric available | PASS in policy telemetry |
-| Cancellation releases KV | FAIL: cancellation is not wired to scheduler |
-| Exception releases KV | NOT PROVEN |
-| Scheduler crash invalidates readiness | FAIL: false-ready API observed |
+| Waiting/prefill/decode/disconnect cancellation | PASS |
+| Duplicate cancellation and survivor correctness | PASS |
+| Cancellation stress | PASS, 2 repeats and 200 requests |
+| Final waiting/running; orphan; failed | 0/0; 0; 0 |
+| KV/table progressive leak signal | 0; memory stable on repeat 2 |
+| Exception releases allocations | PASS in CPU injection gates |
+| Scheduler crash invalidates readiness | PASS with fatal IPC/child monitoring |
 | Original upstream single-GPU pytest suite | FAIL as a pytest gate |
 | Container exits and GPU releases | PASS during bounded cleanups |
 
-The lab is not ready to implement the final deadline-aware scheduler. The next
-safe step is a 6A stabilization patch: wire cancellation, propagate scheduler
-failure to readiness, add resource-release tests, and establish deterministic
-decode ordering. Only then should Prompt 6B compare new policies.
+The short-short closed-loop `upstream_default` regression check completed
+36/36 requests across three repeats. Median completed throughput was
+4.914 RPS versus 4.865 RPS in Prompt 6A (+1.0%). Median TPOT p95 was
+27.933 ms versus 27.770 ms (+0.6%); E2E p95 was 834.5 ms versus 824.0 ms
+(+1.3%). TTFT p95 was 191.2 ms versus 181.2 ms (+5.5%) and remains within the
+small-run variation. No clear default-policy regression was observed.
+
+Prompt 6B-0 is complete and permits controlled token-budget and deadline-policy
+experiments. It does not itself implement deadline-aware scheduling.

@@ -3,8 +3,8 @@
 ## Scope And Baseline
 
 This map describes official Mini-SGLang at pinned commit
-`144024ee9cb96adf5fb6efba8898e6a61b42ad9f`, plus the explicitly documented
-Engine Lab policy boundary. It is a source-level trace, not a claim that the
+`144024ee9cb96adf5fb6efba8898e6a61b42ad9f`, plus the Engine Lab policy and
+lifecycle hardening layers. It is a source-level trace, not a claim that the
 upstream engine was authored in this lab.
 
 The lab uses one process per tensor-parallel rank. A single-GPU run has one
@@ -56,7 +56,8 @@ by `python/minisgl/message/utils.py`.
   `FrontendManager.send_one`
 - Input: OpenAI-compatible chat request.
 - Output: `TokenizeMsg(uid, text, SamplingParams)` to the tokenizer ZMQ queue.
-- State change: allocates `ack_map[uid]` and `event_map[uid]`.
+- State change: allocates acknowledgement, event, and idempotent frontend
+  lifecycle state for the UID.
 - Boundary: asyncio/FastAPI process to synchronous tokenizer process over ZMQ.
 
 The pinned API always returns a `StreamingResponse`; its `stream` request field
@@ -80,7 +81,8 @@ does not select a non-stream response.
 - Function: `Scheduler._process_one_msg`
 - Input: `UserMsg`.
 - Output: a `PendingReq` appended to `PrefillManager.pending_list`.
-- State change: clamps `max_tokens` to model sequence capacity.
+- State change: creates `RequestLifecycle`, clamps `max_tokens` to model
+  sequence capacity, and transitions the request to `WAITING`.
 - Boundary: scheduler CPU path.
 
 `PendingReq` is created in `python/minisgl/scheduler/prefill.py:add_one_req`.
@@ -96,7 +98,8 @@ Engine Lab records its monotonic enqueue timestamp for waiting-time telemetry.
   available KV pages, previous batch phase, and monotonic timestamp.
 - Output: selected prefill/decode requests, chunk sizes, preemption IDs, reason
   codes, and decision latency.
-- State change: the selected manager performs the same mutations as upstream.
+- State change: the selected manager performs the same mutations as upstream;
+  every decision is validated and manager changes can be rolled back.
 - Boundary: pure policy decision followed by scheduler manager mutation.
 
 `upstream_default` exactly preserves the pinned ordering:
@@ -105,7 +108,10 @@ Engine Lab records its monotonic enqueue timestamp for waiting-time telemetry.
 2. only when no prefill batch is available, call
    `DecodeManager.schedule_next_batch()`.
 
-No deadline-aware policy is implemented in Prompt 6A.
+Policy exceptions and invalid decisions fall back for the current step to
+`upstream_default`. Repeated experimental-policy failures open a circuit;
+failure of `upstream_default` is fatal. No deadline-aware policy is implemented
+through Prompt 6B-0.
 
 ### 5. Waiting Queue And Prefill Admission
 
@@ -123,6 +129,10 @@ The waiting list is FIFO and stops at the first request that cannot be admitted.
 Long prompts are represented by `ChunkedReq`; the incomplete request is put
 back before later pending requests. Chunk size is bounded by
 `max_extend_tokens`.
+
+Lifecycle state moves from `WAITING` to `PREFILL_SELECTED`, then to
+`PREFILL_RUNNING`. A chunked request returns to `WAITING`; a complete prefill
+moves to `DECODING`.
 
 ### 6. Running Set And Decode Batch
 
@@ -177,7 +187,9 @@ LRU-like node timestamps and protected/evictable page counts.
 
 The pinned implementation uses page size 1. `Scheduler._prepare_batch` writes
 allocated page indices into `Engine.page_table` before attention metadata is
-planned.
+planned. Engine Lab tracks table-row ownership, rejects double free, and
+returns newly allocated pages if batch preparation or sampling preparation
+fails.
 
 ### 10. Batch Preparation
 
@@ -257,7 +269,8 @@ planning race found in Prompt 6A occurred on this overlap boundary.
 - Input: CPU next token and completion event.
 - Output: `DetokenizeMsg`, incremental text, and SSE chunks.
 - State change: appends host token, removes finished request from decode,
-  releases resources, and deletes frontend state after final acknowledgement.
+  reaches one terminal lifecycle state, releases resources, and deletes
+  frontend state after final acknowledgement.
 - Boundary: scheduler to tokenizer to asyncio API process.
 
 ### 16. KV Release And Prefix Insertion
@@ -274,29 +287,39 @@ planning race found in Prompt 6A occurred on this overlap boundary.
 
 ### 17. Cancellation
 
-- Paths: `python/minisgl/message/tokenizer.py`,
-  `python/minisgl/server/api_server.py`
-- Existing pieces: `AbortMsg` type and `FrontendManager.abort_user`.
-- Pinned behavior: frontend abort only deletes acknowledgement/event state.
-  `AbortMsg` is not exported through `message.__init__`, converted to a backend
-  message, or handled by `Scheduler._process_one_msg`.
+- Paths: `python/minisgl/server/api_server.py`,
+  `python/minisgl/tokenizer/server.py`, `python/minisgl/message/backend.py`,
+  `python/minisgl/scheduler/scheduler.py`.
+- Message path: HTTP cancel or disconnect -> `AbortMsg` ->
+  `AbortBackendMsg` -> `Scheduler.abort_req`.
+- Waiting behavior: remove the pending request without allocating KV.
+- Selected/running behavior: remove only the target and release its ownership.
+- In-flight behavior: defer release until the CUDA completion event, then emit
+  one terminal cancellation.
+- Duplicate behavior: no second callback, terminal frame, or resource free.
 
-Therefore true scheduler cancellation and KV cleanup are not implemented at
-the pinned baseline. This is an explicit Prompt 6B gate failure.
+Pinned upstream's incomplete cancellation path was the sole Prompt 6A xfail.
+Prompt 6B-0 replaces it with passing lifecycle, ownership, disconnect, and GPU
+stress gates. Shared radix state is never cleared as a cancellation shortcut.
 
-### 18. Exception Cleanup And Shutdown
+### 18. Exception Cleanup, Health, And Shutdown
 
 - Paths: `python/minisgl/core.py`,
   `python/minisgl/server/launch.py`,
   `python/minisgl/scheduler/scheduler.py`
 - Functions: `Context.forward_batch`, `_run_scheduler`, `Scheduler.shutdown`
 - Guaranteed cleanup: `Context.forward_batch` resets global batch state in a
-  `finally` block; `KeyboardInterrupt` invokes scheduler shutdown.
-- Missing containment: a non-`KeyboardInterrupt` scheduler exception is not
-  propagated to the API process. Prompt 6A observed the API remain healthy
-  after the scheduler child crashed.
+  `finally` block; preparation errors return allocations; fatal engine/sampler
+  errors fail the affected batch and are re-raised.
+- Health propagation: scheduler/model/tokenizer readiness, heartbeat, fatal
+  IPC, and child-process state are aggregated by `BackendSupervisor`.
+- Admission: `/health` and `/ready` return 200 only for a live, loaded,
+  heartbeat-current scheduler with no fatal error. New requests receive 503
+  otherwise, and in-flight frontend waiters receive an explicit failure.
+- Recovery: fatal state is latched and there is no automatic restart in 6B-0.
 
-This false-readiness state is another Prompt 6B gate failure.
+This closes the false-readiness failure observed in Prompt 6A, where
+`/v1/models` remained responsive after a scheduler CUDA failure.
 
 ### 19. Metrics
 
@@ -307,7 +330,8 @@ Lab's `SchedulingMetrics` records:
 - prefill/decode/idle decisions;
 - batch request count and prefill/decode tokens;
 - waiting/running peaks;
-- maximum waiting time and unique starvation count.
+- maximum waiting time and unique starvation count;
+- cancelled/failed counts, fallback reasons, step ID, and maximum request age.
 
 An optional `--scheduler-metrics-path` writes an atomic JSON summary on clean
 scheduler shutdown. Per-request prompts and token IDs are not recorded.
@@ -323,6 +347,8 @@ New policies should implement `BaseSchedulingPolicy.select` and return a
 - bypass manager invariants;
 - hard-code policy logic into `overlap_loop`.
 
-Before adding deadline behavior, the lab must first add real cancellation,
-worker-failure readiness propagation, and deterministic decode ordering, then
-repeat token-ID and workload baselines.
+Prompt 6B-0 establishes the required cancellation and worker-health gate.
+Future token-budget/deadline policies must still preserve output semantics,
+validate every decision, pass the same lifecycle gates, and document that the
+pinned engine supports step-level prefill/decode interleaving rather than a
+same-batch mixed prefill/decode kernel.

@@ -27,3 +27,5 @@ class UserReply(BaseFrontendMsg):
     uid: int
     incremental_output: str
     finished: bool
+    terminal_reason: str = "completed"
+    error: str | None = None

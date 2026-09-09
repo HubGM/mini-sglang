@@ -35,7 +35,14 @@ Lab-owned changes are intentionally narrow:
 - a pluggable scheduler-policy boundary;
 - an upstream-equivalent default policy;
 - scheduler decision telemetry and CPU correctness tests;
-- reproducible correctness, benchmark, and profiler harnesses.
+- explicit request lifecycle, cancellation, ownership, and health supervision;
+- policy-decision validation, rollback, and safe default fallback;
+- reproducible correctness, cancellation-stress, benchmark, and profiler
+  harnesses.
+
+Prompt 6B-0 hardening is lab-owned glue around the upstream engine. It does not
+change the attribution of model, kernel, attention, KV-cache, or distributed
+runtime implementations.
 
 The appropriate project description is:
 

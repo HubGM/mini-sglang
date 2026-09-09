@@ -17,6 +17,12 @@ class SchedulerConfig(EngineConfig):
     cache_type: str = "radix"
     scheduling_policy: str = "upstream_default"
     scheduler_metrics_path: str | None = None
+    scheduler_decision_timing: bool = True
+    policy_failure_threshold: int = 3
+    scheduler_heartbeat_interval_s: float = 1.0
+    scheduler_health_queue: object | None = field(
+        default=None, repr=False, compare=False
+    )
     offline_mode: bool = False
 
     # networking config

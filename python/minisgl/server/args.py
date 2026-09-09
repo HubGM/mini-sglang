@@ -17,6 +17,8 @@ class ServerArgs(SchedulerConfig):
     server_port: int = 1919
     num_tokenizer: int = 0
     silent_output: bool = False
+    scheduler_heartbeat_timeout_s: float = 5.0
+    cancel_on_disconnect: bool = True
 
     @property
     def share_tokenizer(self) -> bool:
@@ -205,6 +207,45 @@ def parse_args(args: List[str], run_shell: bool = False) -> Tuple[ServerArgs, bo
         type=str,
         default=ServerArgs.scheduler_metrics_path,
         help="Optional path for an atomic scheduler metrics summary.",
+    )
+
+    parser.add_argument(
+        "--disable-scheduler-decision-timing",
+        action="store_false",
+        dest="scheduler_decision_timing",
+        default=ServerArgs.scheduler_decision_timing,
+        help="Disable per-step policy timing instrumentation.",
+    )
+
+    parser.add_argument(
+        "--policy-failure-threshold",
+        type=int,
+        default=ServerArgs.policy_failure_threshold,
+        help="Consecutive experimental policy failures before opening its circuit.",
+    )
+
+    parser.add_argument(
+        "--scheduler-heartbeat-interval",
+        type=float,
+        dest="scheduler_heartbeat_interval_s",
+        default=ServerArgs.scheduler_heartbeat_interval_s,
+        help="Scheduler event-loop heartbeat interval in seconds.",
+    )
+
+    parser.add_argument(
+        "--scheduler-heartbeat-timeout",
+        type=float,
+        dest="scheduler_heartbeat_timeout_s",
+        default=ServerArgs.scheduler_heartbeat_timeout_s,
+        help="Readiness timeout for scheduler heartbeats in seconds.",
+    )
+
+    parser.add_argument(
+        "--disable-cancel-on-disconnect",
+        action="store_false",
+        dest="cancel_on_disconnect",
+        default=ServerArgs.cancel_on_disconnect,
+        help="Allow a disconnected streaming request to continue.",
     )
 
     parser.add_argument(

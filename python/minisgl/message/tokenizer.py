@@ -29,6 +29,8 @@ class DetokenizeMsg(BaseTokenizerMsg):
     uid: int
     next_token: int
     finished: bool
+    terminal_reason: str = "completed"
+    error: str | None = None
 
 
 @dataclass
@@ -41,3 +43,4 @@ class TokenizeMsg(BaseTokenizerMsg):
 @dataclass
 class AbortMsg(BaseTokenizerMsg):
     uid: int
+    reason: str = "client_cancelled"

@@ -17,6 +17,7 @@ class SamplingParams:
     ignore_eos: bool = False
     temperature: float = 0.0
     max_tokens: int = 1024
+    deadline_ms: float | None = None
 
 
 class Req:

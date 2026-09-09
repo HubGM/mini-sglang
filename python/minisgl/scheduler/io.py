@@ -27,6 +27,9 @@ class SchedulerIOMixin:
     def __init__(self, config: SchedulerConfig, tp_cpu_group: torch.distributed.ProcessGroup):
         tp_info = config.tp_info
         self.tp_cpu_group: Final = tp_cpu_group
+        self._heartbeat_poll_ms = max(
+            1, int(config.scheduler_heartbeat_interval_s * 1_000)
+        )
         if config.offline_mode:
             self.receive_msg = self.offline_receive_msg
             self.send_result = self.offline_send_result
@@ -80,26 +83,35 @@ class SchedulerIOMixin:
         pending_msgs: List[BaseBackendMsg] = []
         if blocking:
             self.run_when_idle()
-            pending_msgs.append(self._recv_from_tokenizer.get())
+            msg = self._recv_from_tokenizer.get(timeout_ms=self._heartbeat_poll_ms)
+            if msg is not None:
+                pending_msgs.append(msg)
         while not self._recv_from_tokenizer.empty():
-            pending_msgs.append(self._recv_from_tokenizer.get())
+            msg = self._recv_from_tokenizer.get()
+            assert msg is not None
+            pending_msgs.append(msg)
         return pending_msgs
 
     def _recv_msg_multi_rank0(self, blocking: bool = False) -> List[BaseBackendMsg]:
-        pending_msgs: List[BaseBackendMsg] = []
-        if blocking:
-            raw = self._recv_from_tokenizer.get_raw()
-            self._send_into_ranks.put_raw(raw)
-            pending_msgs.append(self._recv_from_tokenizer.decode(raw))
-
         pending_raw_msgs: List[bytes] = []
+        if blocking:
+            self.run_when_idle()
+            raw = self._recv_from_tokenizer.get_raw(
+                timeout_ms=self._heartbeat_poll_ms
+            )
+            if raw is not None:
+                pending_raw_msgs.append(raw)
+
         while not self._recv_from_tokenizer.empty():
-            pending_raw_msgs.append(self._recv_from_tokenizer.get_raw())
+            raw = self._recv_from_tokenizer.get_raw()
+            assert raw is not None
+            pending_raw_msgs.append(raw)
 
         # broadcast the number of raw messages to all ranks
         src_tensor = torch.tensor(len(pending_raw_msgs))
         self.tp_cpu_group.broadcast(src_tensor, root=0).wait()
 
+        pending_msgs: List[BaseBackendMsg] = []
         for raw in pending_raw_msgs:
             self._send_into_ranks.put_raw(raw)
             pending_msgs.append(self._recv_from_tokenizer.decode(raw))
@@ -107,9 +119,6 @@ class SchedulerIOMixin:
 
     def _recv_msg_multi_rank1(self, blocking: bool = False) -> List[BaseBackendMsg]:
         pending_msgs: List[BaseBackendMsg] = []
-        if blocking:
-            pending_msgs.append(self._recv_from_rank0.get())
-
         # ensure all ranks have the same number of raw messages
         dst_tensor = torch.tensor(-1)
         self.tp_cpu_group.broadcast(dst_tensor, root=0).wait()

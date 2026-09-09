@@ -92,3 +92,40 @@ def test_metrics_capture_overhead_waiting_and_starvation() -> None:
 def test_unknown_policy_is_rejected() -> None:
     with pytest.raises(ValueError, match="Unsupported scheduling policy"):
         create_scheduling_policy("deadline")
+
+
+def test_step_telemetry_records_fallback_and_terminal_counts() -> None:
+    context = make_context(waiting=[FakePending(8)])
+    context = SchedulingContext(
+        **{**context.__dict__, "step_id": 12}
+    )
+    decision = UpstreamDefaultPolicy().select(
+        context, lambda _: None, lambda: None
+    )
+    metrics = SchedulingMetrics("upstream_default")
+
+    metrics.record(
+        context,
+        decision,
+        fallback_reason="invalid_decision",
+        cancelled_count=3,
+        failed_count=1,
+        maximum_waiting_age_ms=44.0,
+    )
+    snapshot = metrics.snapshot()
+
+    assert snapshot["last_step_id"] == 12
+    assert snapshot["fallback_count"] == 1
+    assert snapshot["fallback_reasons"] == {"invalid_decision": 1}
+    assert snapshot["cancelled_count"] == 3
+    assert snapshot["failed_count"] == 1
+    assert snapshot["max_waiting_age_ms"] == 44.0
+
+
+def test_scheduler_metrics_do_not_export_request_ids() -> None:
+    metrics = SchedulingMetrics("upstream_default")
+    snapshot = metrics.snapshot()
+
+    assert "uid" not in snapshot
+    assert "request_id" not in snapshot
+    assert "prompt" not in snapshot

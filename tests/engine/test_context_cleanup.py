@@ -18,11 +18,8 @@ def test_forward_context_resets_after_exception() -> None:
     assert context._batch is None
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Pinned upstream does not export AbortMsg or route cancellation to Scheduler",
-)
 def test_cancellation_message_reaches_scheduler_boundary() -> None:
-    from minisgl.message import AbortMsg
+    from minisgl.message import AbortBackendMsg, AbortMsg
 
     assert AbortMsg(uid=1).uid == 1
+    assert AbortBackendMsg(uid=1).uid == 1

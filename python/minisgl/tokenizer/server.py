@@ -5,6 +5,8 @@ from typing import List
 
 import torch
 from minisgl.message import (
+    AbortBackendMsg,
+    AbortMsg,
     BaseBackendMsg,
     BaseFrontendMsg,
     BaseTokenizerMsg,
@@ -37,7 +39,11 @@ def tokenize_worker(
     local_bs: int,
     tokenizer_id: int = -1,
     ack_queue: mp.Queue[str] | None = None,
+    health_queue: object | None = None,
 ) -> None:
+    from minisgl.server.health import HealthEventKind, HealthReporter
+
+    health_reporter = HealthReporter(health_queue, source=f"tokenizer-{tokenizer_id}")  # type: ignore[arg-type]
     send_backend = ZmqPushQueue(backend_addr, create=False, encoder=BaseBackendMsg.encoder)
     send_frontend = ZmqPushQueue(frontend_addr, create=False, encoder=BaseFrontendMsg.encoder)
     recv_listener = ZmqPullQueue(addr, create=create, decoder=BatchTokenizerMsg.decoder)
@@ -53,6 +59,7 @@ def tokenize_worker(
 
     if ack_queue is not None:
         ack_queue.put(f"Tokenize server {tokenizer_id} is ready")
+    health_reporter.emit(HealthEventKind.TOKENIZER_READY)
 
     try:
         while True:
@@ -64,7 +71,11 @@ def tokenize_worker(
 
             detokenize_msg = [m for m in pending_msg if isinstance(m, DetokenizeMsg)]
             tokenize_msg = [m for m in pending_msg if isinstance(m, TokenizeMsg)]
-            assert len(detokenize_msg) + len(tokenize_msg) == len(pending_msg)
+            abort_msg = [m for m in pending_msg if isinstance(m, AbortMsg)]
+            assert (
+                len(detokenize_msg) + len(tokenize_msg) + len(abort_msg)
+                == len(pending_msg)
+            )
             if len(detokenize_msg) > 0:
                 replies = detokenize_manager.detokenize(detokenize_msg)
                 batch_output = BatchFrontendMsg(
@@ -73,6 +84,8 @@ def tokenize_worker(
                             uid=msg.uid,
                             incremental_output=reply,
                             finished=msg.finished,
+                            terminal_reason=msg.terminal_reason,
+                            error=msg.error,
                         )
                         for msg, reply in zip(detokenize_msg, replies, strict=True)
                     ]
@@ -96,5 +109,23 @@ def tokenize_worker(
                 if len(batch_output.data) == 1:
                     batch_output = batch_output.data[0]
                 send_backend.put(batch_output)
+
+            if len(abort_msg) > 0:
+                for msg in abort_msg:
+                    detokenize_manager.abort(msg.uid)
+                batch_output = BatchBackendMsg(
+                    data=[
+                        AbortBackendMsg(uid=msg.uid, reason=msg.reason)
+                        for msg in abort_msg
+                    ]
+                )
+                if len(batch_output.data) == 1:
+                    batch_output = batch_output.data[0]
+                send_backend.put(batch_output)
     except KeyboardInterrupt:
         pass
+    except BaseException as exc:
+        health_reporter.fatal(type(exc).__name__)
+        raise
+    finally:
+        health_reporter.emit(HealthEventKind.STOPPED)
