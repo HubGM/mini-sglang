@@ -11,7 +11,11 @@ from minisgl.kvcache import BaseCacheHandle
 from minisgl.message import AbortMsg
 from minisgl.scheduler.decode import DecodeManager
 from minisgl.scheduler.lifecycle import LifecycleRegistry, RequestLifecycleState
-from minisgl.scheduler.policy import PolicyController, UpstreamDefaultPolicy
+from minisgl.scheduler.policy import (
+    PolicyController,
+    SchedulingMetrics,
+    UpstreamDefaultPolicy,
+)
 from minisgl.scheduler.prefill import PrefillManager
 from minisgl.scheduler.scheduler import Scheduler
 from minisgl.scheduler.table import TableManager
@@ -68,6 +72,8 @@ def make_scheduler() -> Scheduler:
     scheduler.engine = SimpleNamespace(max_seq_len=32)
     scheduler.health_reporter = FakeHealthReporter()
     scheduler.step_id = 3
+    scheduler.starvation_threshold_ms = 400.0
+    scheduler.scheduling_metrics = SchedulingMetrics("upstream_default")
     scheduler.sent_replies = []
     scheduler.send_result = scheduler.sent_replies.append
     return scheduler
@@ -205,6 +211,26 @@ def test_cancel_does_not_clear_shared_prefix_cache() -> None:
     scheduler.abort_req(7)
 
     assert scheduler.cache_manager.shared_prefix_pages == shared_before
+    assert scheduler.cache_manager.release_calls == 1
+
+
+def test_chunked_prefill_cancellation_releases_request_ownership_once() -> None:
+    scheduler = make_scheduler()
+    lifecycle = add_lifecycle(scheduler, 70, RequestLifecycleState.WAITING)
+    chunked = make_req(scheduler, 70)
+    pending = PendingReq(
+        70,
+        torch.tensor([1, 2, 3, 4], dtype=torch.int32),
+        SamplingParams(max_tokens=4, ttft_deadline_ms=200.0),
+        chunked_req=chunked,
+    )
+    scheduler.prefill_manager.pending_list.append(pending)
+
+    assert scheduler.abort_req(70)
+    assert lifecycle.state == RequestLifecycleState.CANCELLED
+    assert scheduler.cache_manager.release_calls == 1
+    assert not scheduler.table_manager.owns(chunked.table_idx)
+    assert not scheduler.abort_req(70)
     assert scheduler.cache_manager.release_calls == 1
 
 

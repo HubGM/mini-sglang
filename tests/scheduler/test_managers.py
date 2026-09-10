@@ -37,6 +37,18 @@ def test_decode_manager_deduplicates_and_removes_requests() -> None:
     assert manager.schedule_next_batch() is None
 
 
+def test_decode_manager_respects_priority_and_budget_without_losing_requests() -> None:
+    manager = DecodeManager()
+    reqs = [FakeReq(1), FakeReq(2), FakeReq(3)]
+    manager.add_reqs(reqs)
+
+    batch = manager.schedule_next_batch(max_requests=2, priority_uids=[3, 1])
+
+    assert batch is not None
+    assert [req.uid for req in batch.reqs] == [3, 1]
+    assert [req.uid for req in manager.running_reqs] == [1, 2, 3]
+
+
 def test_prefill_manager_preserves_fifo_and_stops_at_first_blocked(
     monkeypatch,
 ) -> None:
@@ -61,6 +73,36 @@ def test_prefill_manager_preserves_fifo_and_stops_at_first_blocked(
     assert batch is not None
     assert [req.uid for req in batch.reqs] == [1]
     assert [req.uid for req in manager.pending_list] == [2, 3]
+
+
+def test_prefill_priority_order_does_not_lose_unselected_request(
+    monkeypatch,
+) -> None:
+    requests = [
+        PendingReq(1, torch.tensor([1], dtype=torch.int32), SimpleNamespace(max_tokens=1)),
+        PendingReq(2, torch.tensor([2], dtype=torch.int32), SimpleNamespace(max_tokens=1)),
+        PendingReq(3, torch.tensor([3], dtype=torch.int32), SimpleNamespace(max_tokens=1)),
+    ]
+    manager = PrefillManager(
+        cache_manager=SimpleNamespace(),
+        table_manager=SimpleNamespace(),
+        decode_manager=SimpleNamespace(inflight_tokens=0),
+        pending_list=requests.copy(),
+    )
+
+    def try_add_one(_self, pending):
+        return None if pending.uid == 2 else FakeReq(pending.uid)
+
+    monkeypatch.setattr(PrefillAdder, "try_add_one", try_add_one)
+    batch = manager.schedule_next_batch(
+        prefill_budget=16,
+        priority_uids=[3, 1, 2],
+        max_chunk_tokens=4,
+    )
+
+    assert batch is not None
+    assert [req.uid for req in batch.reqs] == [3, 1]
+    assert [req.uid for req in manager.pending_list] == [2]
 
 
 def test_finished_request_cache_release_returns_unshared_pages() -> None:
@@ -173,3 +215,37 @@ def test_prefill_adder_chunks_prompt_to_token_budget(monkeypatch) -> None:
     assert destination.copied.tolist() == [0, 1, 2, 3]
     assert adder.token_budget == 0
     assert adder.reserved_size == 12
+
+
+def test_prefill_adder_enforces_per_request_chunk_limit(monkeypatch) -> None:
+    class FakeDestination:
+        def __getitem__(self, _slice):
+            return self
+
+        def copy_(self, source, non_blocking=False):
+            assert non_blocking
+
+    pending = PendingReq(
+        uid=10,
+        input_ids=torch.arange(10, dtype=torch.int32),
+        sampling_params=SamplingParams(max_tokens=2),
+    )
+    adder = PrefillAdder(
+        token_budget=8,
+        reserved_size=0,
+        cache_manager=SimpleNamespace(),
+        table_manager=SimpleNamespace(token_pool=[FakeDestination()]),
+        max_chunk_tokens=3,
+    )
+    monkeypatch.setattr(torch.Tensor, "pin_memory", lambda self: self)
+
+    req = adder._add_one_req(
+        pending_req=pending,
+        cache_handle=BaseCacheHandle(cached_len=0),
+        table_idx=0,
+        cached_len=0,
+    )
+
+    assert isinstance(req, ChunkedReq)
+    assert req.extend_len == 3
+    assert adder.token_budget == 5

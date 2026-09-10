@@ -19,6 +19,21 @@ class SchedulerConfig(EngineConfig):
     scheduler_metrics_path: str | None = None
     scheduler_decision_timing: bool = True
     policy_failure_threshold: int = 3
+    max_step_tokens: int = 2048
+    max_prefill_chunk_tokens: int = 512
+    decode_reserve_ratio: float = 0.5
+    max_consecutive_prefill_steps: int = 1
+    default_ttft_deadline_ms: float = 200.0
+    default_e2e_deadline_ms: float = 1200.0
+    initial_prefill_ms_per_token: float = 0.15
+    initial_decode_step_ms: float = 25.0
+    service_ewma_alpha: float = 0.2
+    max_wait_ms: float = 400.0
+    aging_start_ms: float = 100.0
+    aging_rate: float = 1.0
+    starvation_threshold_ms: float = 400.0
+    scheduler_request_sample_rate: float = 0.1
+    scheduler_max_step_records: int = 10_000
     scheduler_heartbeat_interval_s: float = 1.0
     scheduler_health_queue: object | None = field(
         default=None, repr=False, compare=False
@@ -42,7 +57,7 @@ class SchedulerConfig(EngineConfig):
 
     @property
     def max_forward_len(self) -> int:
-        return self.max_extend_tokens
+        return max(self.max_extend_tokens, self.max_step_tokens)
 
     @property
     def backend_create_detokenizer_link(self) -> bool:

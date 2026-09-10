@@ -1,0 +1,3494 @@
+{
+  "deadline_aging_vs_upstream": {
+    "long-prefill-interference": {
+      "completed_throughput_change": -0.04448144013274233,
+      "e2e_p95_improvement": 0.04146394329831161,
+      "goodput_improvement": null,
+      "max_waiting_reduction": -132.19059411908557,
+      "starvation_count_reduction": 0,
+      "tpot_p95_improvement": 0.2725491048610062,
+      "ttft_p95_improvement": -1.7572695886920677,
+      "ttft_p99_improvement": -1.8423279576567737
+    },
+    "mixed": {
+      "completed_throughput_change": -0.06277305274830547,
+      "e2e_p95_improvement": 0.01993964143898492,
+      "goodput_improvement": -1.0,
+      "max_waiting_reduction": -560.2340621482093,
+      "starvation_count_reduction": -1.0,
+      "tpot_p95_improvement": 0.20665436066672516,
+      "ttft_p95_improvement": -0.9830970053383928,
+      "ttft_p99_improvement": -0.8601778864660428
+    },
+    "starvation-stress": {
+      "completed_throughput_change": -0.0697387545918193,
+      "e2e_p95_improvement": 0.13704804143421753,
+      "goodput_improvement": -0.7674346886479548,
+      "max_waiting_reduction": -378.89081400523736,
+      "starvation_count_reduction": 0,
+      "tpot_p95_improvement": 0.2539615602149401,
+      "ttft_p95_improvement": -1.0836845481627133,
+      "ttft_p99_improvement": -1.9581627049276056
+    }
+  },
+  "experiment": "deadline-token-scheduler",
+  "gpu_correctness": {
+    "all_identical": true,
+    "all_policies_present": true,
+    "expected_policies": [
+      "upstream_default",
+      "token_budget",
+      "deadline_aware",
+      "deadline_aging"
+    ],
+    "per_policy": {
+      "deadline_aging": {
+        "identical_to_upstream": true,
+        "prompt_count": 3,
+        "token_counts": [
+          14,
+          14,
+          14
+        ]
+      },
+      "deadline_aware": {
+        "identical_to_upstream": true,
+        "prompt_count": 3,
+        "token_counts": [
+          14,
+          14,
+          14
+        ]
+      },
+      "token_budget": {
+        "identical_to_upstream": true,
+        "prompt_count": 3,
+        "token_counts": [
+          14,
+          14,
+          14
+        ]
+      },
+      "upstream_default": {
+        "identical_to_upstream": true,
+        "prompt_count": 3,
+        "token_counts": [
+          14,
+          14,
+          14
+        ]
+      }
+    },
+    "policy_count": 4,
+    "raw_prompts_stored": false,
+    "raw_token_ids_stored": false,
+    "schema_version": 1,
+    "temperature": 0.0
+  },
+  "groups": {
+    "long-prefill-interference": {
+      "deadline_aging": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              273.0,
+              273.0
+            ],
+            "mean": 273.0,
+            "median": 273.0,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              6.679269165181646,
+              6.6869063430663696
+            ],
+            "mean": 6.681992791275772,
+            "median": 6.6798028655793,
+            "stdev": 0.004263619639200753
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              90.0,
+              90.0
+            ],
+            "mean": 90.0,
+            "median": 90.0,
+            "stdev": 0.0
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              2379.085700493306,
+              2381.6231819801033
+            ],
+            "mean": 2380.2168304100633,
+            "median": 2379.9416087567806,
+            "stdev": 1.2909350459207944
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              3405.973927723244,
+              3407.7550508547574
+            ],
+            "mean": 3407.094635659208,
+            "median": 3407.5549283996224,
+            "stdev": 0.9757058765642157
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              3422.693559238687,
+              3428.1111928261817
+            ],
+            "mean": 3426.1887165190033,
+            "median": 3427.7613974921405,
+            "stdev": 3.031943684262367
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              36974.0,
+              37008.0
+            ],
+            "mean": 36985.333333333336,
+            "median": 36974.0,
+            "stdev": 19.629909152447276
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              36974.0,
+              36976.692307692305
+            ],
+            "mean": 36974.89743589744,
+            "median": 36974.0,
+            "stdev": 1.5544045708935306
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              74.88461538461539,
+              78.53846153846153
+            ],
+            "mean": 76.64102564102564,
+            "median": 76.5,
+            "stdev": 1.8310008472319417
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              3248.7965219443527,
+              3252.5112452674825
+            ],
+            "mean": 3250.1212936765355,
+            "median": 3249.0561138177713,
+            "stdev": 2.0738245925075014
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              154.29173,
+              154.742814
+            ],
+            "mean": 154.570304,
+            "median": 154.676368,
+            "stdev": 0.24352899793659277
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              271.846255022893,
+              272.15708816280124
+            ],
+            "mean": 271.9571066049239,
+            "median": 271.86797662907753,
+            "stdev": 0.1735293193154681
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              21.0,
+              21.0
+            ],
+            "mean": 21.0,
+            "median": 21.0,
+            "stdev": 0.0
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              99.861,
+              104.261
+            ],
+            "mean": 102.37366666666667,
+            "median": 102.999,
+            "stdev": 2.265674586813674
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              444.81125,
+              473.82769999999994
+            ],
+            "mean": 459.04996666666665,
+            "median": 458.51095,
+            "stdev": 14.515732736442649
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              488.9916800000001,
+              568.7073000000004
+            ],
+            "mean": 534.9390533333335,
+            "median": 547.1181800000002,
+            "stdev": 41.229763069512586
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.07021132460585586,
+              0.07021132460585586
+            ],
+            "mean": 0.07021132460585586,
+            "median": 0.07021132460585586,
+            "stdev": 0.0
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              54.96370686096665,
+              55.01280766506882
+            ],
+            "mean": 54.98347463815109,
+            "median": 54.97390938841778,
+            "stdev": 0.02591028256725896
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              82.74556555208704,
+              82.77686134734677
+            ],
+            "mean": 82.75923482903706,
+            "median": 82.75527758767737,
+            "stdev": 0.016018786458991196
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              86.6332700991382,
+              86.70336376751463
+            ],
+            "mean": 86.6623647150894,
+            "median": 86.65046027861536,
+            "stdev": 0.036531729940411525
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              250.40302658453584,
+              251.77832879126072
+            ],
+            "mean": 250.97188151751956,
+            "median": 250.7342891767621,
+            "stdev": 0.7177754734215537
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              957.7505625318736,
+              959.8259197548032
+            ],
+            "mean": 958.9659022477766,
+            "median": 959.321224456653,
+            "stdev": 1.0823434319947256
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              1008.7578076403589,
+              1011.5633623581381
+            ],
+            "mean": 1010.4817170711856,
+            "median": 1011.1239812150599,
+            "stdev": 1.5090267530740187
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              118.12773944999998,
+              119.14242804999996
+            ],
+            "mean": 118.70163229999997,
+            "median": 118.83472939999996,
+            "stdev": 0.5202733582106509
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              145.41119137000004,
+              146.20310570000004
+            ],
+            "mean": 145.91000558000005,
+            "median": 146.11571967000003,
+            "stdev": 0.4341898106050291
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      },
+      "deadline_aware": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              273.0,
+              273.0
+            ],
+            "mean": 273.0,
+            "median": 273.0,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              6.5594596197803705,
+              6.573197393187661
+            ],
+            "mean": 6.566938132444972,
+            "median": 6.568157384366884,
+            "stdev": 0.006949570920879022
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              93.0,
+              93.0
+            ],
+            "mean": 93.0,
+            "median": 93.0,
+            "stdev": 0.0
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              2292.0395671389997,
+              2304.0841124020517
+            ],
+            "mean": 2296.6361984921,
+            "median": 2293.784915935248,
+            "stdev": 6.508849884018075
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              3225.2734166104347,
+              3237.5622171908617
+            ],
+            "mean": 3230.3405701182783,
+            "median": 3228.1860765535384,
+            "stdev": 6.421451301439188
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              3236.7202793620527,
+              3248.469027420506
+            ],
+            "mean": 3240.9266728162766,
+            "median": 3237.590711666271,
+            "stdev": 6.546353781381762
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              36950.0,
+              36974.0
+            ],
+            "mean": 36966.0,
+            "median": 36974.0,
+            "stdev": 13.856406460551018
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              36949.92307692308,
+              36974.0
+            ],
+            "mean": 36965.97435897436,
+            "median": 36974.0,
+            "stdev": 13.900818019718805
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              76.34615384615384,
+              76.53846153846153
+            ],
+            "mean": 76.46153846153845,
+            "median": 76.5,
+            "stdev": 0.10175966581017822
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              3190.521159061172,
+              3197.203212046478
+            ],
+            "mean": 3194.158707621234,
+            "median": 3194.7517517560527,
+            "stdev": 3.3802712959155143
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              156.352751,
+              185.508047
+            ],
+            "mean": 175.730427,
+            "median": 185.330483,
+            "stdev": 16.7817945290203
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              266.5327092170757,
+              267.31002732296486
+            ],
+            "mean": 266.909621641605,
+            "median": 266.8861283847744,
+            "stdev": 0.3891912245582567
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              23.0,
+              23.0
+            ],
+            "mean": 23.0,
+            "median": 23.0,
+            "stdev": 0.0
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              87.891,
+              91.636
+            ],
+            "mean": 89.53,
+            "median": 89.063,
+            "stdev": 1.9156782088858193
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              435.1989,
+              465.80249999999995
+            ],
+            "mean": 445.8707333333333,
+            "median": 436.6108,
+            "stdev": 17.275846064472002
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              469.18633999999986,
+              624.9996599999998
+            ],
+            "mean": 523.2320933333332,
+            "median": 475.51027999999997,
+            "stdev": 88.19000098209392
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.06718497440732758,
+              0.06718918372844827
+            ],
+            "mean": 0.06718637751436782,
+            "median": 0.06718497440732758,
+            "stdev": 2.4302526821363024e-06
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              50.10788988969896,
+              50.257076134743244
+            ],
+            "mean": 50.19813212836026,
+            "median": 50.229430360638574,
+            "stdev": 0.07936509582564479
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              76.1442510910066,
+              81.6543372915614
+            ],
+            "mean": 78.04756419230547,
+            "median": 76.3441041943484,
+            "stdev": 3.125155109409138
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              82.0465864387474,
+              83.55781480687715
+            ],
+            "mean": 82.64842645847608,
+            "median": 82.34087812980371,
+            "stdev": 0.8011817996010044
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              237.22245963290334,
+              265.88803343474865
+            ],
+            "mean": 253.9654690772295,
+            "median": 258.7859141640365,
+            "stdev": 14.928372264699574
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              924.744871025905,
+              951.6892865765838
+            ],
+            "mean": 940.0600837698826,
+            "median": 943.7460937071588,
+            "stdev": 13.845229658087629
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              1351.3412809371953,
+              1377.5019395817076
+            ],
+            "mean": 1365.4344149244332,
+            "median": 1367.460024254397,
+            "stdev": 13.197436684708931
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              74.9581001499999,
+              171.6689805999999
+            ],
+            "mean": 139.30811571666658,
+            "median": 171.2972663999999,
+            "stdev": 55.729058133385884
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              137.20809447000005,
+              185.05138236
+            ],
+            "mean": 169.08972328333334,
+            "median": 185.00969302,
+            "stdev": 27.610308334816548
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      },
+      "token_budget": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              273.0,
+              273.0
+            ],
+            "mean": 273.0,
+            "median": 273.0,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              6.866131494089077,
+              6.8720601760055136
+            ],
+            "mean": 6.869038196497199,
+            "median": 6.868922919397006,
+            "stdev": 0.002966021564982443
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              81.0,
+              81.0
+            ],
+            "mean": 81.0,
+            "median": 81.0,
+            "stdev": 0.0
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              2329.9411232583225,
+              2333.8316227309406
+            ],
+            "mean": 2331.699044598887,
+            "median": 2331.324387807399,
+            "stdev": 1.9721238095430726
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              3516.4579887874424,
+              3521.114493906498
+            ],
+            "mean": 3519.1799140690514,
+            "median": 3519.9672595132142,
+            "stdev": 2.4260450567292327
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              3528.2705985195935,
+              3533.743446925655
+            ],
+            "mean": 3530.872541858504,
+            "median": 3530.603580130264,
+            "stdev": 2.746319851615242
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              36950.0,
+              36974.0
+            ],
+            "mean": 36966.0,
+            "median": 36974.0,
+            "stdev": 13.856406460551018
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              36949.92307692308,
+              36974.0
+            ],
+            "mean": 36965.97435897436,
+            "median": 36974.0,
+            "stdev": 13.900818019718805
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              72.57692307692308,
+              76.42307692307692
+            ],
+            "mean": 73.87179487179488,
+            "median": 72.61538461538461,
+            "stdev": 2.209558757168648
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              3339.6863587249272,
+              3342.570069609082
+            ],
+            "mean": 3341.1001787762375,
+            "median": 3341.0441079947036,
+            "stdev": 1.4426728892076361
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              72.861737,
+              75.173401
+            ],
+            "mean": 73.638518,
+            "median": 72.880416,
+            "stdev": 1.329280479818686
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              279.45155180942544,
+              279.6928491634244
+            ],
+            "mean": 279.569854597436,
+            "median": 279.5651628194581,
+            "stdev": 0.12071707769478994
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              32.0,
+              32.0
+            ],
+            "mean": 32.0,
+            "median": 32.0,
+            "stdev": 0.0
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              24.271,
+              26.0975
+            ],
+            "mean": 25.158166666666666,
+            "median": 25.106,
+            "stdev": 0.9143667663106161
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              259.35275,
+              267.10925000000003
+            ],
+            "mean": 263.78358333333335,
+            "median": 264.88875,
+            "stdev": 3.9946048719908944
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              331.91405,
+              350.4750499999999
+            ],
+            "mean": 338.15808333333325,
+            "median": 332.0851499999998,
+            "stdev": 10.667149089767765
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.06896432522123894,
+              0.06896432522123894
+            ],
+            "mean": 0.06896432522123894,
+            "median": 0.06896432522123894,
+            "stdev": 0.0
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              54.74472183572209,
+              54.81321845342469
+            ],
+            "mean": 54.77322658039938,
+            "median": 54.76173945205136,
+            "stdev": 0.0356638787491903
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              100.77889204025269,
+              100.89417970739305
+            ],
+            "mean": 100.81879695670472,
+            "median": 100.78331912246843,
+            "stdev": 0.06532089321373628
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              101.27349648127952,
+              101.40787304192781
+            ],
+            "mean": 101.34164678160515,
+            "median": 101.34357082160811,
+            "stdev": 0.06720893884272955
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              190.01513859257102,
+              194.4212638773024
+            ],
+            "mean": 192.02859746292233,
+            "median": 191.64938991889358,
+            "stdev": 2.2274051668418022
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              559.826847165823,
+              564.2109953332692
+            ],
+            "mean": 561.8765528158596,
+            "median": 561.5918159484863,
+            "stdev": 2.2059000660187924
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              568.2415488548577,
+              571.2971121352166
+            ],
+            "mean": 569.6874272357672,
+            "median": 569.5236207172275,
+            "stdev": 1.5343536657845611
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              72.57669225000001,
+              73.2120913
+            ],
+            "mean": 72.82143595,
+            "median": 72.67552429999999,
+            "stdev": 0.3419073637544469
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              72.80160550000001,
+              74.70915769
+            ],
+            "mean": 73.44486528,
+            "median": 72.82383264999999,
+            "stdev": 1.0949657460564635
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      },
+      "upstream_default": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              491.4,
+              491.4
+            ],
+            "mean": 491.4,
+            "median": 491.4,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              6.963580909643146,
+              6.993109807782157
+            ],
+            "mean": 6.982484248548371,
+            "median": 6.990762028219808,
+            "stdev": 0.016412805474466365
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              76.0,
+              77.0
+            ],
+            "mean": 76.33333333333333,
+            "median": 76.0,
+            "stdev": 0.5773502691896257
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              2290.4254905879498,
+              2308.262455277145
+            ],
+            "mean": 2296.431901088605,
+            "median": 2290.6077574007213,
+            "stdev": 10.245965772133836
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              3548.7136317417026,
+              3556.26414520666
+            ],
+            "mean": 3553.3117536300174,
+            "median": 3554.957483941689,
+            "stdev": 4.035329551621873
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              3571.3327198661864,
+              3578.1201360095292
+            ],
+            "mean": 3574.4648303153613,
+            "median": 3573.9416350703686,
+            "stdev": 3.423821611009411
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              37102.0,
+              37220.0
+            ],
+            "mean": 37152.666666666664,
+            "median": 37136.0,
+            "stdev": 60.73988255942987
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              37090.0,
+              37220.0
+            ],
+            "mean": 37144.72,
+            "median": 37124.16,
+            "stdev": 67.39462293091289
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              74.16,
+              77.92
+            ],
+            "mean": 76.66666666666667,
+            "median": 77.92,
+            "stdev": 2.170837012152996
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              3387.085754450426,
+              3401.448610505241
+            ],
+            "mean": 3396.280338493927,
+            "median": 3400.3066505261145,
+            "stdev": 7.9831885827804365
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              1.047678,
+              1.838615
+            ],
+            "mean": 1.3492030000000002,
+            "median": 1.161316,
+            "stdev": 0.42763474843492316
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              283.18562365882127,
+              284.153361856215
+            ],
+            "mean": 283.7989830872337,
+            "median": 284.0579637466649,
+            "stdev": 0.533322173871724
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              24.0,
+              25.0
+            ],
+            "mean": 24.666666666666668,
+            "median": 25.0,
+            "stdev": 0.5773502691896257
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              12.716,
+              13.0595
+            ],
+            "mean": 12.940833333333334,
+            "median": 13.047,
+            "stdev": 0.19481166118416407
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              324.82175,
+              336.04175
+            ],
+            "mean": 330.9198666666666,
+            "median": 331.8960999999998,
+            "stdev": 5.673347657321292
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              425.01189999999997,
+              628.1817699999997
+            ],
+            "mean": 494.8521833333332,
+            "median": 431.3628799999999,
+            "stdev": 115.5104659642069
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.038579053217821783,
+              0.03858147045173267
+            ],
+            "mean": 0.03858066470709571,
+            "median": 0.03858147045173267,
+            "stdev": 1.3955906491456358e-06
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              56.10044978801971,
+              56.23748504718685
+            ],
+            "mean": 56.15978724782126,
+            "median": 56.141426908257216,
+            "stdev": 0.0703384113797835
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              108.9084257899473,
+              114.04714512040039
+            ],
+            "mean": 112.23873613986171,
+            "median": 113.76063750923744,
+            "stdev": 2.8876888549277338
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              114.4065754829152,
+              116.12946248546774
+            ],
+            "mean": 115.46245132445816,
+            "median": 115.85131600499153,
+            "stdev": 0.924930651841456
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              243.08339739218354,
+              257.1857408620417
+            ],
+            "mean": 248.77389737715325,
+            "median": 246.05255387723446,
+            "stdev": 7.4346019173104
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              345.3275270294398,
+              364.57074973732233
+            ],
+            "mean": 352.6075416555007,
+            "median": 347.92434819974005,
+            "stdev": 10.44148604147662
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              352.5106655433774,
+              370.2318613603711
+            ],
+            "mean": 359.49349937650067,
+            "median": 355.7379712257534,
+            "stdev": 9.438653985836645
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              0.6125223999999998,
+              0.7855616000000001
+            ],
+            "mean": 0.6831354666666666,
+            "median": 0.6513224,
+            "stdev": 0.09080030061741733
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              0.9728142100000002,
+              1.491017520000001
+            ],
+            "mean": 1.159430673333334,
+            "median": 1.0144602900000004,
+            "stdev": 0.2879166140683783
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    "mixed": {
+      "deadline_aging": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              308.42857142857144,
+              308.42857142857144
+            ],
+            "mean": 308.42857142857144,
+            "median": 308.42857142857144,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              5.506253455521927,
+              5.766322299008292
+            ],
+            "mean": 5.611840622777073,
+            "median": 5.562946113801002,
+            "stdev": 0.136755093485004
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              84.0,
+              92.0
+            ],
+            "mean": 89.0,
+            "median": 91.0,
+            "stdev": 4.358898943540674
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              2586.505565792322,
+              2668.253419920802
+            ],
+            "mean": 2637.3413377441466,
+            "median": 2657.2650275193155,
+            "stdev": 44.36657496748748
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              3653.640097612515,
+              4108.513030782341
+            ],
+            "mean": 3884.5462607530253,
+            "median": 3891.48565386422,
+            "stdev": 227.51585156905884
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              3712.928334400058,
+              4260.52163945511
+            ],
+            "mean": 4009.092513962338,
+            "median": 4053.8275680318475,
+            "stdev": 276.5240057069734
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              37094.0,
+              37222.0
+            ],
+            "mean": 37154.666666666664,
+            "median": 37148.0,
+            "stdev": 64.25988899253821
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              37069.933333333334,
+              37106.692307692305
+            ],
+            "mean": 37090.27751252579,
+            "median": 37094.206896551725,
+            "stdev": 18.691859005950402
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              79.41379310344827,
+              90.46153846153847
+            ],
+            "mean": 83.2695549661067,
+            "median": 79.93333333333334,
+            "stdev": 6.233855184517808
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              3935.135802879671,
+              4120.998336357926
+            ],
+            "mean": 4010.595431744682,
+            "median": 3975.6521559964494,
+            "stdev": 97.73430681061608
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              299.071502,
+              599.866628
+            ],
+            "mean": 497.9032853333333,
+            "median": 594.771726,
+            "stdev": 172.21221807477133
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              185.74428323293967,
+              194.70948296317997
+            ],
+            "mean": 189.5555921265734,
+            "median": 188.21301018360057,
+            "stdev": 4.630939025292031
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              20.0,
+              21.0
+            ],
+            "mean": 20.666666666666668,
+            "median": 21.0,
+            "stdev": 0.5773502691896257
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              79.699,
+              100.853
+            ],
+            "mean": 92.67033333333333,
+            "median": 97.459,
+            "stdev": 11.360960581453195
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              479.9404999999999,
+              572.5393999999999
+            ],
+            "mean": 513.7454999999999,
+            "median": 488.75659999999993,
+            "stdev": 51.10746435414302
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              780.5083399999999,
+              868.0989599999998
+            ],
+            "mean": 822.8757199999999,
+            "median": 820.0198599999999,
+            "stdev": 43.86509010877326
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              0.0,
+              3.0
+            ],
+            "mean": 1.3333333333333333,
+            "median": 1.0,
+            "stdev": 1.5275252316519468
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.09765625,
+              0.10610727163461539
+            ],
+            "mean": 0.10076826046674679,
+            "median": 0.098541259765625,
+            "stdev": 0.004644845611996386
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              53.79825087518177,
+              63.60642494552809
+            ],
+            "mean": 58.17719514509351,
+            "median": 57.12690961457068,
+            "stdev": 4.987724372925261
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              98.36313625210491,
+              117.43293874897057
+            ],
+            "mean": 106.65248052388235,
+            "median": 104.16136657057157,
+            "stdev": 9.775918287488429
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              111.79580157326366,
+              125.43228439500797
+            ],
+            "mean": 117.25460778124881,
+            "median": 114.5357373754748,
+            "stdev": 7.213363164951367
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              481.3540321774781,
+              660.4146244935691
+            ],
+            "mean": 585.90986362348,
+            "median": 615.9609341993928,
+            "stdev": 93.23611994402283
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              1179.9417430534959,
+              1373.953543836251
+            ],
+            "mean": 1307.210359396413,
+            "median": 1367.7357912994921,
+            "stdev": 110.2616916296524
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              1255.0268267840147,
+              1533.4932112414392
+            ],
+            "mean": 1405.4499493353069,
+            "median": 1427.829809980467,
+            "stdev": 140.57569292046944
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              260.20006499999977,
+              593.23621415
+            ],
+            "mean": 385.19925653333325,
+            "median": 302.16149045,
+            "stdev": 181.38280543438532
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              298.96309681,
+              594.75269968
+            ],
+            "mean": 469.0826517833334,
+            "median": 513.5321588600002,
+            "stdev": 152.82241753426445
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      },
+      "deadline_aware": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              308.42857142857144,
+              308.42857142857144
+            ],
+            "mean": 308.42857142857144,
+            "median": 308.42857142857144,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              5.122671660295468,
+              5.2671135444911314
+            ],
+            "mean": 5.1833200289885335,
+            "median": 5.160174882179002,
+            "stdev": 0.07495090288398443
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              106.0,
+              109.0
+            ],
+            "mean": 107.66666666666667,
+            "median": 108.0,
+            "stdev": 1.5275252316519468
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              2488.669448066503,
+              2872.2293116152287
+            ],
+            "mean": 2697.319879196584,
+            "median": 2731.060877908021,
+            "stdev": 193.99325626658572
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              3284.674668079242,
+              3596.1781612597406
+            ],
+            "mean": 3443.2084908088045,
+            "median": 3448.7726430874313,
+            "stdev": 155.82626995743698
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              3381.642696056515,
+              3683.8598935399204
+            ],
+            "mean": 3571.438713176176,
+            "median": 3648.8135499320924,
+            "stdev": 165.29959962424127
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              37118.0,
+              37196.0
+            ],
+            "mean": 37144.0,
+            "median": 37118.0,
+            "stdev": 45.033320996790806
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              37057.6129032258,
+              37149.0625
+            ],
+            "mean": 37088.7251344086,
+            "median": 37059.5,
+            "stdev": 52.262209563329755
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              78.4375,
+              82.03125
+            ],
+            "mean": 79.82291666666667,
+            "median": 79.0,
+            "stdev": 1.9330425876926078
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              3661.002679891161,
+              3764.230479796329
+            ],
+            "mean": 3704.3460473838054,
+            "median": 3687.804982463927,
+            "stdev": 53.56491192775434
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              593.749352,
+              1500.115861
+            ],
+            "mean": 1138.4658926666666,
+            "median": 1321.532465,
+            "stdev": 480.11466295940016
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              172.97554639597695,
+              177.6772969008342
+            ],
+            "mean": 174.9075808852165,
+            "median": 174.06989935883834,
+            "stdev": 2.4602636458737024
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              19.0,
+              22.0
+            ],
+            "mean": 20.333333333333332,
+            "median": 20.0,
+            "stdev": 1.5275252316519468
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              72.0065,
+              76.44
+            ],
+            "mean": 74.65683333333334,
+            "median": 75.524,
+            "stdev": 2.340505091499124
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              454.94554999999986,
+              487.648
+            ],
+            "mean": 469.3428999999998,
+            "median": 465.4351499999996,
+            "stdev": 16.697767561788133
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              758.3400099999988,
+              874.3610200000002
+            ],
+            "mean": 817.2320099999994,
+            "median": 818.9949999999992,
+            "stdev": 58.030593574942706
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              4.0,
+              9.0
+            ],
+            "mean": 7.0,
+            "median": 8.0,
+            "stdev": 2.6457513110645907
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.08424901598282443,
+              0.0882890625
+            ],
+            "mean": 0.08625262202682689,
+            "median": 0.08621978759765625,
+            "stdev": 0.002020223388647859
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              44.142422887186214,
+              53.4313084402432
+            ],
+            "mean": 48.2154844088875,
+            "median": 47.07272189923308,
+            "stdev": 4.748713333056802
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              64.79997028326176,
+              110.71351709775618
+            ],
+            "mean": 81.7225301911999,
+            "median": 69.65410319258176,
+            "stdev": 25.223969611015317
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              69.33159089246303,
+              127.91300088548188
+            ],
+            "mean": 88.9871361639793,
+            "median": 69.71681671399298,
+            "stdev": 33.7113379736096
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              751.0342518799007,
+              843.9820590429008
+            ],
+            "mean": 789.0969783378144,
+            "median": 772.2746240906417,
+            "stdev": 48.70387475258606
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              1489.1695780679581,
+              2068.5657893307507
+            ],
+            "mean": 1844.7425218609471,
+            "median": 1976.4921981841323,
+            "stdev": 311.357471911094
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              1689.8660121299329,
+              2148.5593492724
+            ],
+            "mean": 1990.76786530825,
+            "median": 2133.878234522417,
+            "stdev": 260.6920169801613
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              571.3211680999999,
+              1305.45360065
+            ],
+            "mean": 944.0648101999998,
+            "median": 955.4196618499993,
+            "stdev": 367.1979120616568
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              593.74717439,
+              1443.6645105900002
+            ],
+            "mean": 1094.7489136033334,
+            "median": 1246.8350558300003,
+            "stdev": 444.9016920470953
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      },
+      "token_budget": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              308.42857142857144,
+              308.42857142857144
+            ],
+            "mean": 308.42857142857144,
+            "median": 308.42857142857144,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              5.666081689635783,
+              5.83557591007291
+            ],
+            "mean": 5.7661711714570965,
+            "median": 5.796855914662597,
+            "stdev": 0.08881575192266257
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              75.0,
+              77.0
+            ],
+            "mean": 76.33333333333333,
+            "median": 77.0,
+            "stdev": 1.1547005383792515
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              2639.3358926288784,
+              2791.9026310555637
+            ],
+            "mean": 2721.0345466931662,
+            "median": 2731.8651163950562,
+            "stdev": 76.8578450686056
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              3896.1395258549596,
+              4198.630470409988
+            ],
+            "mean": 4045.643274439498,
+            "median": 4042.159827053546,
+            "stdev": 151.275555489697
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              4056.299431566149,
+              4409.350229622796
+            ],
+            "mean": 4266.439105402678,
+            "median": 4333.66765501909,
+            "stdev": 185.87892541854652
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              37048.0,
+              37196.0
+            ],
+            "mean": 37122.666666666664,
+            "median": 37124.0,
+            "stdev": 74.00900846068222
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              37014.8275862069,
+              37144.206896551725
+            ],
+            "mean": 37065.144827586206,
+            "median": 37036.4,
+            "stdev": 69.31414228746014
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              74.96551724137932,
+              88.48
+            ],
+            "mean": 80.8151724137931,
+            "median": 79.0,
+            "stdev": 6.9376832752087045
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              4049.35971419304,
+              4170.491583732106
+            ],
+            "mean": 4120.890330534672,
+            "median": 4142.819693678869,
+            "stdev": 63.47365737406257
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              144.597254,
+              299.563945
+            ],
+            "mean": 198.72616166666666,
+            "median": 152.017286,
+            "stdev": 87.40685401846622
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              191.70243049934402,
+              196.85342736645947
+            ],
+            "mean": 194.70104357347392,
+            "median": 195.54727285461829,
+            "stdev": 2.6777360173209526
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              28.0,
+              35.0
+            ],
+            "mean": 30.666666666666668,
+            "median": 29.0,
+            "stdev": 3.7859388972001824
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              22.194,
+              25.622
+            ],
+            "mean": 23.823,
+            "median": 23.653,
+            "stdev": 1.7203113090368272
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              327.62849999999935,
+              456.5326999999998
+            ],
+            "mean": 396.7962666666662,
+            "median": 406.2275999999994,
+            "stdev": 64.96757445636524
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              459.38635999999997,
+              648.4379700000003
+            ],
+            "mean": 573.74818,
+            "median": 613.42021,
+            "stdev": 100.5759925834129
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.09852818080357142,
+              0.10610727163461539
+            ],
+            "mean": 0.10324405954288766,
+            "median": 0.10509672619047619,
+            "stdev": 0.0041152077391814436
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              64.07464973938961,
+              70.96864164307497
+            ],
+            "mean": 67.9156534884413,
+            "median": 68.70366908285929,
+            "stdev": 3.513902036882117
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              120.9514132953937,
+              130.16088630566043
+            ],
+            "mean": 124.65393329520826,
+            "median": 122.84950028457067,
+            "stdev": 4.8626723259044295
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              126.20936016833755,
+              140.4725832382784
+            ],
+            "mean": 132.71254947313938,
+            "median": 131.45570501280218,
+            "stdev": 7.214196184179727
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              346.72266710549593,
+              450.8707537315786
+            ],
+            "mean": 386.1689477538069,
+            "median": 360.9134224243462,
+            "stdev": 56.480856550859585
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              951.7692092340438,
+              1349.2959018796682
+            ],
+            "mean": 1150.1330071128905,
+            "median": 1149.3339102249593,
+            "stdev": 198.76455106059382
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              1019.1752749867737,
+              1390.1459260471165
+            ],
+            "mean": 1189.1129113268107,
+            "median": 1158.017532946542,
+            "stdev": 187.42998133834595
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              41.52352634999979,
+              297.10924815
+            ],
+            "mean": 131.1955077999999,
+            "median": 54.953748899999866,
+            "stdev": 143.84234302572756
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              124.39755427000006,
+              298.85297722999996
+            ],
+            "mean": 184.46763461333336,
+            "median": 130.15237234000008,
+            "stdev": 99.10239369916275
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      },
+      "upstream_default": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              719.6666666666666,
+              719.6666666666666
+            ],
+            "mean": 719.6666666666666,
+            "median": 719.6666666666666,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              5.818802158294937,
+              6.004164162097227
+            ],
+            "mean": 5.919501423686669,
+            "median": 5.935537950667843,
+            "stdev": 0.09371577114666162
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              70.0,
+              76.0
+            ],
+            "mean": 73.33333333333333,
+            "median": 74.0,
+            "stdev": 3.0550504633038935
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              2521.1468334309757,
+              2662.402667105198
+            ],
+            "mean": 2583.408832239608,
+            "median": 2566.6769961826503,
+            "stdev": 72.09901795536167
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              3741.0746753215785,
+              4130.282677710055
+            ],
+            "mean": 3947.3388423677525,
+            "median": 3970.659174071624,
+            "stdev": 195.64916479221446
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              3933.1621260754764,
+              4388.886098153889
+            ],
+            "mean": 4192.076695074017,
+            "median": 4254.181860992685,
+            "stdev": 234.12362846810328
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.2001388054032409
+            ],
+            "mean": 0.13266335680850078,
+            "median": 0.19785126502226144,
+            "stdev": 0.11489553033091994
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              37220.0,
+              37552.0
+            ],
+            "mean": 37368.666666666664,
+            "median": 37334.0,
+            "stdev": 168.69301506978093
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              37175.724137931036,
+              37442.89655172414
+            ],
+            "mean": 37279.54022988506,
+            "median": 37220.0,
+            "stdev": 143.1923667800844
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              76.86206896551724,
+              78.60714285714286
+            ],
+            "mean": 77.9035303776683,
+            "median": 78.24137931034483,
+            "stdev": 0.9202864487708952
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              4158.503942461449,
+              4290.975987845485
+            ],
+            "mean": 4230.47035079474,
+            "median": 4241.931122077285,
+            "stdev": 66.97553777948083
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              0.932018,
+              1.125008
+            ],
+            "mean": 1.0389276666666667,
+            "median": 1.059757,
+            "stdev": 0.09816659752855517
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              196.4815528784257,
+              202.1401934572733
+            ],
+            "mean": 199.61574217940918,
+            "median": 200.22548020252856,
+            "stdev": 2.8781745330631603
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              21.0,
+              23.0
+            ],
+            "mean": 21.666666666666668,
+            "median": 21.0,
+            "stdev": 1.1547005383792515
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              10.6435,
+              11.447
+            ],
+            "mean": 11.12,
+            "median": 11.2695,
+            "stdev": 0.4220968490761333
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              321.6049999999997,
+              343.34245
+            ],
+            "mean": 330.3703999999999,
+            "median": 326.16375,
+            "stdev": 11.463032377713267
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              456.7386999999993,
+              639.5827700000002
+            ],
+            "mean": 525.1589033333337,
+            "median": 479.15524000000164,
+            "stdev": 99.72583047338452
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.03333333333333333
+            ],
+            "mean": 0.022222222222222223,
+            "median": 0.03333333333333333,
+            "stdev": 0.019245008972987525
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.056884765625,
+              0.05932879704301075
+            ],
+            "mean": 0.058098634102056214,
+            "median": 0.05808233963815789,
+            "stdev": 0.0012220971832146617
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              68.36908896256125,
+              74.1134411940653
+            ],
+            "mean": 71.16060234519556,
+            "median": 70.9992768789601,
+            "stdev": 2.8755721290620517
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              128.85361330118027,
+              134.37459382066578
+            ],
+            "mean": 131.50733691275764,
+            "median": 131.29380361642683,
+            "stdev": 2.7666773981828876
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              137.80904720071703,
+              149.28779039491457
+            ],
+            "mean": 141.74167246516055,
+            "median": 138.12817979985002,
+            "stdev": 6.537077578036975
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              271.75272023305297,
+              280.1843876950443
+            ],
+            "mean": 275.15939452374977,
+            "median": 273.541075643152,
+            "stdev": 4.442687367672309
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              531.8699599709362,
+              778.6912950221448
+            ],
+            "mean": 666.7527072907735,
+            "median": 689.6968668792396,
+            "stdev": 125.0000748141016
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              618.7534461636097,
+              856.1317385733129
+            ],
+            "mean": 747.4874035889904,
+            "median": 767.5770260300488,
+            "stdev": 119.95752633413561
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              0.67237525,
+              1.0453365000000001
+            ],
+            "mean": 0.84156485,
+            "median": 0.8069828000000001,
+            "stdev": 0.18887022564989572
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              0.8578563000000002,
+              1.0565603300000002
+            ],
+            "mean": 0.9827321433333336,
+            "median": 1.0337798000000002,
+            "stdev": 0.10874382889584414
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    "starvation-stress": {
+      "deadline_aging": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              191.0,
+              191.0
+            ],
+            "mean": 191.0,
+            "median": 191.0,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              10.393204291011893,
+              10.498632969558365
+            ],
+            "mean": 10.454823772392004,
+            "median": 10.472634056605754,
+            "stdev": 0.05492455036543095
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              80.0,
+              80.0
+            ],
+            "mean": 80.0,
+            "median": 80.0,
+            "stdev": 0.0
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              1481.8011433817446,
+              1530.27033386752
+            ],
+            "mean": 1498.8191480127473,
+            "median": 1484.3859667889774,
+            "stdev": 27.26817094645764
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              1839.6867866627863,
+              1903.040907857939
+            ],
+            "mean": 1862.5300752464673,
+            "median": 1844.8625312186768,
+            "stdev": 35.17872584507516
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              2297.927236407995,
+              2327.789195654914
+            ],
+            "mean": 2310.485467389226,
+            "median": 2305.739970104769,
+            "stdev": 15.486250704213347
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              0.5196602145505946,
+              0.7873974727168774
+            ],
+            "mean": 0.6102297966992533,
+            "median": 0.5236317028302877,
+            "stdev": 0.15344455757342232
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              37006.0,
+              37014.0
+            ],
+            "mean": 37008.666666666664,
+            "median": 37006.0,
+            "stdev": 4.618802153517006
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              36976.34782608696,
+              37013.47826086957
+            ],
+            "mean": 36988.72463768116,
+            "median": 36976.34782608696,
+            "stdev": 21.437266516866607
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              70.17391304347827,
+              75.1304347826087
+            ],
+            "mean": 73.20289855072464,
+            "median": 74.30434782608695,
+            "stdev": 2.6554980356357407
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              2727.1768059615206,
+              2754.8412912121153
+            ],
+            "mean": 2743.345757875662,
+            "median": 2748.0191764533497,
+            "stdev": 14.412202015889212
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              366.454399,
+              398.444153
+            ],
+            "mean": 387.5599813333333,
+            "median": 397.781392,
+            "stdev": 18.280974187871205
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              250.4762234133866,
+              253.01705456635662
+            ],
+            "mean": 251.9612529146473,
+            "median": 252.39048076419868,
+            "stdev": 1.3236816638069027
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              20.0,
+              21.0
+            ],
+            "mean": 20.333333333333332,
+            "median": 20.0,
+            "stdev": 0.5773502691896257
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              104.369,
+              110.949
+            ],
+            "mean": 106.714,
+            "median": 104.824,
+            "stdev": 3.6746666515481365
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              497.1916999999999,
+              513.14615
+            ],
+            "mean": 503.91335,
+            "median": 501.40220000000005,
+            "stdev": 8.268344722040851
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              793.8581,
+              859.4877800000002
+            ],
+            "mean": 833.0666066666669,
+            "median": 845.8539400000005,
+            "stdev": 34.63308598087879
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.05,
+              0.075
+            ],
+            "mean": 0.058333333333333334,
+            "median": 0.05,
+            "stdev": 0.01443375672974064
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.05633121905940594,
+              0.05689453125
+            ],
+            "mean": 0.05670676051980198,
+            "median": 0.05689453125,
+            "stdev": 0.000325228444877277
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              53.159658098593354,
+              56.083513413677395
+            ],
+            "mean": 54.24713628038561,
+            "median": 53.498237328886084,
+            "stdev": 1.5993341444345257
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              64.35757278788672,
+              65.5125759276948
+            ],
+            "mean": 64.7762256248686,
+            "median": 64.45852815902427,
+            "stdev": 0.639692756793883
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              66.80263672671889,
+              68.50763905752936
+            ],
+            "mean": 67.48483151534869,
+            "median": 67.14421876179783,
+            "stdev": 0.9020925800207047
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              233.27067121863365,
+              242.56256269291043
+            ],
+            "mean": 237.6440359900395,
+            "median": 237.09887405857444,
+            "stdev": 4.669872904167032
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              732.0748190861193,
+              769.0625039394945
+            ],
+            "mean": 747.5410988709577,
+            "median": 741.4859735872594,
+            "stdev": 19.222918986306738
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              1010.9814368560908,
+              1067.860879441723
+            ],
+            "mean": 1045.9123519280301,
+            "median": 1058.8947394862769,
+            "stdev": 30.581441059038497
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              281.10312009999984,
+              312.45549989999984
+            ],
+            "mean": 291.57972288333315,
+            "median": 281.18054864999976,
+            "stdev": 18.078994671504294
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              366.4515208,
+              374.68859702
+            ],
+            "mean": 371.7330512533333,
+            "median": 374.05903593999994,
+            "stdev": 4.5847584162612
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      },
+      "deadline_aware": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              191.0,
+              191.0
+            ],
+            "mean": 191.0,
+            "median": 191.0,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              10.86913598948362,
+              10.895097633103418
+            ],
+            "mean": 10.87901766987367,
+            "median": 10.87281938703397,
+            "stdev": 0.014046913094378785
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              72.0,
+              72.0
+            ],
+            "mean": 72.0,
+            "median": 72.0,
+            "stdev": 0.0
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              1573.740100953728,
+              1599.219286814332
+            ],
+            "mean": 1584.1648483959336,
+            "median": 1579.5351574197412,
+            "stdev": 13.355626414776673
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              2232.5572404079135,
+              2238.483747793361
+            ],
+            "mean": 2235.7708159678923,
+            "median": 2236.271459702402,
+            "stdev": 2.99480476143591
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              2587.9335168376565,
+              2599.3335774261504
+            ],
+            "mean": 2592.46032435447,
+            "median": 2590.1138787996024,
+            "stdev": 6.051421354673702
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              1.9020987981596338,
+              1.9066420857930984
+            ],
+            "mean": 1.9038280922278923,
+            "median": 1.9027433927309447,
+            "stdev": 0.0024582097915163245
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              36950.0,
+              37014.0
+            ],
+            "mean": 36971.333333333336,
+            "median": 36950.0,
+            "stdev": 36.95041722813605
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              36949.565217391304,
+              37013.454545454544
+            ],
+            "mean": 36970.86166007905,
+            "median": 36949.565217391304,
+            "stdev": 36.88652075565599
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              71.30434782608695,
+              74.63636363636364
+            ],
+            "mean": 72.41501976284584,
+            "median": 71.30434782608695,
+            "stdev": 1.923740225007334
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              2852.061283640502,
+              2858.8736189263373
+            ],
+            "mean": 2854.654236574851,
+            "median": 2853.027807157714,
+            "stdev": 3.685909995965089
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              203.763528,
+              203.808386
+            ],
+            "mean": 203.78376933333334,
+            "median": 203.779394,
+            "stdev": 0.022746817301185367
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              261.4027205470811,
+              262.29947551696483
+            ],
+            "mean": 261.73116744073764,
+            "median": 261.491306258167,
+            "stdev": 0.4941582835296051
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              23.0,
+              23.0
+            ],
+            "mean": 23.0,
+            "median": 23.0,
+            "stdev": 0.0
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              78.3495,
+              81.0695
+            ],
+            "mean": 79.5885,
+            "median": 79.34649999999999,
+            "stdev": 1.3760534146609287
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              473.10835,
+              503.2503499999997
+            ],
+            "mean": 488.39688333333305,
+            "median": 488.8319499999995,
+            "stdev": 15.075709046453797
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              654.9898700000003,
+              678.3054500000002
+            ],
+            "mean": 664.6424933333336,
+            "median": 660.6321600000003,
+            "stdev": 12.164133662839749
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.175,
+              0.175
+            ],
+            "mean": 0.175,
+            "median": 0.175,
+            "stdev": 0.0
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.059899259868421054,
+              0.059899259868421054
+            ],
+            "mean": 0.059899259868421054,
+            "median": 0.059899259868421054,
+            "stdev": 0.0
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              63.30614460433425,
+              63.45928437812732
+            ],
+            "mean": 63.36752978970735,
+            "median": 63.33716038666047,
+            "stdev": 0.08096093539736313
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              81.24983357872976,
+              81.3913198127209
+            ],
+            "mean": 81.30239933742669,
+            "median": 81.26604462082943,
+            "stdev": 0.07743279451497789
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              81.28839991500844,
+              81.7388527824179
+            ],
+            "mean": 81.44643279858798,
+            "median": 81.31204569833758,
+            "stdev": 0.25351896570992577
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              181.28487141802907,
+              186.88482511788607
+            ],
+            "mean": 183.90462004269162,
+            "median": 183.54416359215975,
+            "stdev": 2.817324439904472
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              600.4558245651424,
+              607.7045331243424
+            ],
+            "mean": 603.5754778888075,
+            "median": 602.5660759769379,
+            "stdev": 3.7282855455047508
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              623.8245529681444,
+              630.0888510141522
+            ],
+            "mean": 626.8490335065871,
+            "median": 626.6336965374649,
+            "stdev": 3.1376958122174967
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              111.16662354999997,
+              125.20515889999996
+            ],
+            "mean": 120.51883361666663,
+            "median": 125.18471839999995,
+            "stdev": 8.099257947602727
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              172.85985157999994,
+              178.61021143999997
+            ],
+            "mean": 176.6919515933333,
+            "median": 178.60579175999996,
+            "stdev": 3.3186966971289986
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      },
+      "token_budget": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              191.0,
+              191.0
+            ],
+            "mean": 191.0,
+            "median": 191.0,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              10.87358865557974,
+              10.890184545438013
+            ],
+            "mean": 10.879968451048203,
+            "median": 10.876132152126855,
+            "stdev": 0.008938332177057955
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              67.0,
+              68.0
+            ],
+            "mean": 67.33333333333333,
+            "median": 67.0,
+            "stdev": 0.5773502691896257
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              1668.076238129288,
+              1693.3368165045977
+            ],
+            "mean": 1683.719273346166,
+            "median": 1689.7447654046118,
+            "stdev": 13.665801142764664
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              2081.560062104835,
+              2145.76972303912
+            ],
+            "mean": 2123.50420798175,
+            "median": 2143.182838801294,
+            "stdev": 36.34771688184686
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              2643.158052386716,
+              2675.9149497095495
+            ],
+            "mean": 2663.8915401976556,
+            "median": 2672.601618496701,
+            "stdev": 18.031990420813035
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              1.9028780147264546,
+              2.450291522723553
+            ],
+            "mean": 2.1761319892917927,
+            "median": 2.1752264304253712,
+            "stdev": 0.2737078775118972
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              36950.0,
+              37014.0
+            ],
+            "mean": 36971.333333333336,
+            "median": 36950.0,
+            "stdev": 36.95041722813605
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              36949.545454545456,
+              37013.454545454544
+            ],
+            "mean": 36970.84848484849,
+            "median": 36949.545454545456,
+            "stdev": 36.897930840026376
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              74.5909090909091,
+              74.72727272727273
+            ],
+            "mean": 74.68181818181819,
+            "median": 74.72727272727273,
+            "stdev": 0.07872958216222394
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              2853.2296632241237,
+              2857.5844247229343
+            ],
+            "mean": 2854.9037215550484,
+            "median": 2853.897076718087,
+            "stdev": 2.3454183632597942
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              91.639877,
+              92.032856
+            ],
+            "mean": 91.88692733333333,
+            "median": 91.988049,
+            "stdev": 0.21512163352934405
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              261.23796745030324,
+              261.3644290905123
+            ],
+            "mean": 261.30049049855444,
+            "median": 261.2990749548477,
+            "stdev": 0.06324270261525394
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              30.0,
+              31.0
+            ],
+            "mean": 30.666666666666668,
+            "median": 31.0,
+            "stdev": 0.5773502691896257
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              24.362,
+              26.76
+            ],
+            "mean": 25.812333333333335,
+            "median": 26.315,
+            "stdev": 1.275580782754796
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              364.637,
+              423.353
+            ],
+            "mean": 396.43666666666667,
+            "median": 401.32,
+            "stdev": 29.66104132247102
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              466.129,
+              857.732
+            ],
+            "mean": 631.557,
+            "median": 570.81,
+            "stdev": 202.74584067003693
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.175,
+              0.225
+            ],
+            "mean": 0.2,
+            "median": 0.2,
+            "stdev": 0.02500000000000001
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.05803571428571429,
+              0.058050661670918366
+            ],
+            "mean": 0.05804069674744898,
+            "median": 0.05803571428571429,
+            "stdev": 8.629876871255597e-06
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              68.15568287856877,
+              69.14355075851878
+            ],
+            "mean": 68.76244236456233,
+            "median": 68.98809345659944,
+            "stdev": 0.5311869243142104
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              82.725179788524,
+              87.30955396616912
+            ],
+            "mean": 85.74182509131145,
+            "median": 87.19074151924123,
+            "stdev": 2.613166807057756
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              86.44583424958198,
+              89.95465340076214
+            ],
+            "mean": 88.78420242870396,
+            "median": 89.95211963576776,
+            "stdev": 2.0250866427980183
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              160.44916631653905,
+              161.85812931507826
+            ],
+            "mean": 161.26959274212518,
+            "median": 161.50148259475827,
+            "stdev": 0.7325461491461089
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              584.6860576421022,
+              599.5054729748517
+            ],
+            "mean": 593.9094364487877,
+            "median": 597.536778729409,
+            "stdev": 8.048103920596454
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              599.3705766182393,
+              609.2459969501942
+            ],
+            "mean": 605.7061707787216,
+            "median": 608.5019387677312,
+            "stdev": 5.4993836626912564
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              89.5563782,
+              90.1761065
+            ],
+            "mean": 89.91071828333332,
+            "median": 89.99967014999999,
+            "stdev": 0.3192962846524154
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              91.06089147,
+              91.95527603
+            ],
+            "mean": 91.43829343333333,
+            "median": 91.2987128,
+            "stdev": 0.463241837697001
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      },
+      "upstream_default": {
+        "metrics": {
+          "average_prefill_chunk_tokens": {
+            "bootstrap_median_95ci": [
+              267.4,
+              267.4
+            ],
+            "mean": 267.4,
+            "median": 267.4,
+            "stdev": 0.0
+          },
+          "completed_rps": {
+            "bootstrap_median_95ci": [
+              11.236534927116189,
+              11.266551082059754
+            ],
+            "mean": 11.253606814950373,
+            "median": 11.257734435675179,
+            "stdev": 0.01542790747427884
+          },
+          "decode_steps": {
+            "bootstrap_median_95ci": [
+              63.0,
+              63.0
+            ],
+            "mean": 63.0,
+            "median": 63.0,
+            "stdev": 0.0
+          },
+          "e2e_p50_ms": {
+            "bootstrap_median_95ci": [
+              1626.734604127705,
+              1643.0320874787867
+            ],
+            "mean": 1633.1864488311112,
+            "median": 1629.7926548868418,
+            "stdev": 8.662584423647218
+          },
+          "e2e_p95_ms": {
+            "bootstrap_median_95ci": [
+              2134.3110942281783,
+              2142.605275148526
+            ],
+            "mean": 2138.2557216721275,
+            "median": 2137.8507956396784,
+            "stdev": 4.161890568441301
+          },
+          "e2e_p99_ms": {
+            "bootstrap_median_95ci": [
+              2536.2744096945967,
+              2540.850328151136
+            ],
+            "mean": 2538.7540003502118,
+            "median": 2539.137263204902,
+            "stdev": 2.3119094363888446
+          },
+          "goodput_rps": {
+            "bootstrap_median_95ci": [
+              2.2473069854232377,
+              2.253310216411951
+            ],
+            "mean": 2.250721362990075,
+            "median": 2.2515468871350355,
+            "stdev": 0.0030855814948558186
+          },
+          "gpu_memory_max_mib": {
+            "bootstrap_median_95ci": [
+              37140.0,
+              37200.0
+            ],
+            "mean": 37180.0,
+            "median": 37200.0,
+            "stdev": 34.64101615137755
+          },
+          "gpu_memory_mean_mib": {
+            "bootstrap_median_95ci": [
+              37139.90909090909,
+              37145.545454545456
+            ],
+            "mean": 37143.666666666664,
+            "median": 37145.545454545456,
+            "stdev": 3.254156062707455
+          },
+          "gpu_utilization_max_percent": {
+            "bootstrap_median_95ci": [
+              100.0,
+              100.0
+            ],
+            "mean": 100.0,
+            "median": 100.0,
+            "stdev": 0.0
+          },
+          "gpu_utilization_mean_percent": {
+            "bootstrap_median_95ci": [
+              71.77272727272727,
+              72.04545454545455
+            ],
+            "mean": 71.87878787878788,
+            "median": 71.81818181818181,
+            "stdev": 0.14611592062110954
+          },
+          "input_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              2948.466764875288,
+              2956.3430039324794
+            ],
+            "mean": 2952.946428242978,
+            "median": 2954.029515921167,
+            "stdev": 4.048282921250737
+          },
+          "long_request_completion_rate": {
+            "bootstrap_median_95ci": [
+              1.0,
+              1.0
+            ],
+            "mean": 1.0,
+            "median": 1.0,
+            "stdev": 0.0
+          },
+          "max_waiting_ms": {
+            "bootstrap_median_95ci": [
+              1.045071,
+              1.201529
+            ],
+            "mean": 1.097898,
+            "median": 1.047094,
+            "stdev": 0.08975277852523567
+          },
+          "output_tokens_per_s": {
+            "bootstrap_median_95ci": [
+              268.5531847580769,
+              269.55223463827963
+            ],
+            "mean": 269.1489052566284,
+            "median": 269.3412963735286,
+            "stdev": 0.5265794547642977
+          },
+          "prefill_steps": {
+            "bootstrap_median_95ci": [
+              28.0,
+              28.0
+            ],
+            "mean": 28.0,
+            "median": 28.0,
+            "stdev": 0.0
+          },
+          "scheduler_decision_p50_us": {
+            "bootstrap_median_95ci": [
+              11.269,
+              12.482
+            ],
+            "mean": 12.025333333333332,
+            "median": 12.325,
+            "stdev": 0.659691089323884
+          },
+          "scheduler_decision_p95_us": {
+            "bootstrap_median_95ci": [
+              368.7534499999993,
+              399.12619999999924
+            ],
+            "mean": 382.3242833333326,
+            "median": 379.09319999999923,
+            "stdev": 15.442017687816335
+          },
+          "scheduler_decision_p99_us": {
+            "bootstrap_median_95ci": [
+              591.8723799999988,
+              628.633339999998
+            ],
+            "mean": 608.4474299999986,
+            "median": 604.8365699999988,
+            "stdev": 18.64459110533361
+          },
+          "slo_attainment": {
+            "bootstrap_median_95ci": [
+              0.2,
+              0.2
+            ],
+            "mean": 0.2,
+            "median": 0.2,
+            "stdev": 0.0
+          },
+          "starvation_count": {
+            "bootstrap_median_95ci": [
+              0.0,
+              0.0
+            ],
+            "mean": 0.0,
+            "median": 0.0,
+            "stdev": 0.0
+          },
+          "token_budget_utilization": {
+            "bootstrap_median_95ci": [
+              0.03125268286401099,
+              0.03125804859203297
+            ],
+            "mean": 0.03125626001602564,
+            "median": 0.03125804859203297,
+            "stdev": 3.0979045178863164e-06
+          },
+          "tpot_p50_ms": {
+            "bootstrap_median_95ci": [
+              67.28874233720654,
+              69.05377798036417
+            ],
+            "mean": 68.01053777224186,
+            "median": 67.68909299915487,
+            "stdev": 0.9253824949786604
+          },
+          "tpot_p95_ms": {
+            "bootstrap_median_95ci": [
+              86.35644970421234,
+              87.08209912292659
+            ],
+            "mean": 86.61321016311969,
+            "median": 86.40108166222015,
+            "stdev": 0.40668248719424804
+          },
+          "tpot_p99_ms": {
+            "bootstrap_median_95ci": [
+              88.08935902850783,
+              89.31532723586196
+            ],
+            "mean": 88.58726337349609,
+            "median": 88.35710385611847,
+            "stdev": 0.6445770426724771
+          },
+          "ttft_p50_ms": {
+            "bootstrap_median_95ci": [
+              118.26064437627792,
+              123.4300727955997
+            ],
+            "mean": 121.2598371009032,
+            "median": 122.08879413083196,
+            "stdev": 2.6825593868028617
+          },
+          "ttft_p95_ms": {
+            "bootstrap_median_95ci": [
+              354.0188370272517,
+              363.4456687606871
+            ],
+            "mean": 357.7725940849632,
+            "median": 355.8532764669508,
+            "stdev": 4.997911986193415
+          },
+          "ttft_p99_ms": {
+            "bootstrap_median_95ci": [
+              355.95236606895924,
+              373.584757624194
+            ],
+            "mean": 362.49800653817755,
+            "median": 357.9568959213793,
+            "stdev": 9.653578207834482
+          },
+          "waiting_p95_ms": {
+            "bootstrap_median_95ci": [
+              0.773551,
+              0.8240018
+            ],
+            "mean": 0.7996533166666667,
+            "median": 0.8014071500000001,
+            "stdev": 0.02527108532851001
+          },
+          "waiting_p99_ms": {
+            "bootstrap_median_95ci": [
+              0.9435575099999999,
+              1.0573151899999997
+            ],
+            "mean": 0.9849811699999999,
+            "median": 0.9540708099999999,
+            "stdev": 0.06286326595272304
+          }
+        },
+        "valid_repeats": [
+          1,
+          2,
+          3
+        ]
+      }
+    }
+  },
+  "methodology": {
+    "base_seed": 20260909,
+    "policies": [
+      "upstream_default",
+      "token_budget",
+      "deadline_aware",
+      "deadline_aging"
+    ],
+    "repeats": [
+      1,
+      2,
+      3
+    ],
+    "scheduler": {
+      "aging_rate": 1.0,
+      "aging_start_ms": 100.0,
+      "decode_reserve_ratio": 0.5,
+      "max_consecutive_prefill_steps": 1,
+      "max_prefill_chunk_tokens": 512,
+      "max_step_tokens": 2048,
+      "max_wait_ms": 400.0,
+      "request_sample_rate": 1.0,
+      "starvation_threshold_ms": 400.0
+    },
+    "slo": {
+      "e2e_ms": 1200.0,
+      "tpot_ms": 50.0,
+      "ttft_ms": 200.0
+    },
+    "workloads": [
+      "mixed",
+      "long-prefill-interference",
+      "starvation-stress"
+    ]
+  },
+  "privacy": {
+    "aggregate_only": true,
+    "raw_prompts_stored": false,
+    "raw_token_ids_stored": false,
+    "request_identifiers_stored": false,
+    "trace_fingerprints_stored": false
+  },
+  "schema_version": 1,
+  "validity": {
+    "all_repeats_complete": true,
+    "expected_core_runs": 36,
+    "observed_runs": 36,
+    "same_trace_within_repeat": true,
+    "valid_core_runs": 36
+  }
+}

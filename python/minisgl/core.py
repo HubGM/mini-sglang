@@ -18,6 +18,8 @@ class SamplingParams:
     temperature: float = 0.0
     max_tokens: int = 1024
     deadline_ms: float | None = None
+    ttft_deadline_ms: float | None = None
+    e2e_deadline_ms: float | None = None
 
 
 class Req:

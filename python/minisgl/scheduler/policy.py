@@ -3,18 +3,58 @@ from __future__ import annotations
 import json
 import os
 import enum
+import math
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Dict, Iterable, Tuple
+from typing import Any, Callable, Dict, Iterable, Sequence, Tuple
 
 from minisgl.core import Batch, Req
 
 from .utils import PendingReq
 
-SchedulePrefill = Callable[[int], Batch | None]
-ScheduleDecode = Callable[[], Batch | None]
+SchedulePrefill = Callable[
+    [int, Sequence[int] | None, int | None], Batch | None
+]
+ScheduleDecode = Callable[[int | None, Sequence[int] | None], Batch | None]
+
+
+@dataclass(frozen=True)
+class SchedulingPolicyConfig:
+    max_step_tokens: int = 2048
+    max_prefill_chunk_tokens: int = 512
+    decode_reserve_ratio: float = 0.5
+    max_consecutive_prefill_steps: int = 1
+    default_ttft_deadline_ms: float = 200.0
+    default_e2e_deadline_ms: float = 1200.0
+    initial_prefill_ms_per_token: float = 0.15
+    initial_decode_step_ms: float = 25.0
+    service_ewma_alpha: float = 0.2
+    max_wait_ms: float = 400.0
+    aging_start_ms: float = 100.0
+    aging_rate: float = 1.0
+
+
+@dataclass(frozen=True)
+class RequestSchedulingInfo:
+    uid: int
+    enqueue_time_ns: int
+    first_scheduled_time_ns: int | None
+    first_token_time_ns: int | None
+    input_tokens: int
+    remaining_input_tokens: int
+    requested_output_tokens: int
+    generated_tokens: int
+    ttft_deadline_ms: float
+    e2e_deadline_ms: float
+
+    def age_ms(self, now_ns: int) -> float:
+        return max(0, now_ns - self.enqueue_time_ns) / 1_000_000
+
+    @property
+    def remaining_output_tokens(self) -> int:
+        return max(0, self.requested_output_tokens - self.generated_tokens)
 
 
 @dataclass(frozen=True)
@@ -27,6 +67,7 @@ class SchedulingContext:
     current_timestamp_ns: int
     step_id: int = 0
     measure_decision_overhead: bool = True
+    request_info: Tuple[RequestSchedulingInfo, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -38,6 +79,11 @@ class SchedulingDecision:
     preempted_request_uids: Tuple[int, ...] = ()
     reason_codes: Tuple[str, ...] = ()
     decision_latency_ns: int = 0
+    token_budget: int = 0
+    token_budget_used: int = 0
+    minimum_slack_ms: float | None = None
+    urgent_request_count: int = 0
+    request_slack_ms: Tuple[Tuple[int, float], ...] = ()
 
 
 class BaseSchedulingPolicy(ABC):
@@ -77,6 +123,16 @@ class BaseSchedulingPolicy(ABC):
 
     def on_request_finished(self, uid: int) -> None:
         _ = uid
+
+    def on_step_completed(
+        self,
+        *,
+        phase: str,
+        elapsed_ms: float,
+        prefill_tokens: int,
+        decode_tokens: int,
+    ) -> None:
+        _ = (phase, elapsed_ms, prefill_tokens, decode_tokens)
 
 
 class PolicyHealth(str, enum.Enum):
@@ -138,12 +194,34 @@ class UpstreamDefaultPolicy(BaseSchedulingPolicy):
                 if context.measure_decision_overhead
                 else 0
             ),
+            token_budget=context.available_token_budget,
+            token_budget_used=(
+                sum(size for _, size in chunk_sizes)
+                if batch is not None and batch.is_prefill
+                else len(selected_decode)
+            ),
         )
 
 
-def create_scheduling_policy(name: str) -> BaseSchedulingPolicy:
+def create_scheduling_policy(
+    name: str,
+    config: SchedulingPolicyConfig | None = None,
+) -> BaseSchedulingPolicy:
     if name == UpstreamDefaultPolicy.name:
         return UpstreamDefaultPolicy()
+    from .advanced_policy import (
+        DeadlineAgingPolicy,
+        DeadlineAwarePolicy,
+        TokenBudgetPolicy,
+    )
+
+    policies = {
+        TokenBudgetPolicy.name: TokenBudgetPolicy,
+        DeadlineAwarePolicy.name: DeadlineAwarePolicy,
+        DeadlineAgingPolicy.name: DeadlineAgingPolicy,
+    }
+    if policy_type := policies.get(name):
+        return policy_type(config or SchedulingPolicyConfig())
     raise ValueError(f"Unsupported scheduling policy: {name}")
 
 
@@ -199,6 +277,16 @@ def validate_scheduling_decision(
             raise PolicyValidationError("invalid_prefill_chunk_size")
     elif decision.prefill_chunk_sizes:
         raise PolicyValidationError("decode_decision_has_prefill_chunks")
+
+    actual_used = (
+        sum(size for _, size in decision.prefill_chunk_sizes)
+        if batch.is_prefill
+        else len(decision.selected_decode_requests)
+    )
+    if decision.token_budget_used != actual_used:
+        raise PolicyValidationError("token_budget_usage_mismatch")
+    if decision.token_budget < 0 or actual_used > decision.token_budget:
+        raise PolicyValidationError("step_token_budget_exceeded")
 
 
 @dataclass(frozen=True)
@@ -296,6 +384,24 @@ class PolicyController:
         except Exception:
             self.total_failures += 1
 
+    def on_step_completed(
+        self,
+        *,
+        phase: str,
+        elapsed_ms: float,
+        prefill_tokens: int,
+        decode_tokens: int,
+    ) -> None:
+        try:
+            self.active_policy.on_step_completed(
+                phase=phase,
+                elapsed_ms=elapsed_ms,
+                prefill_tokens=prefill_tokens,
+                decode_tokens=decode_tokens,
+            )
+        except Exception:
+            self.total_failures += 1
+
     def manual_reset(self) -> None:
         self.circuit_open = False
         self.consecutive_failures = 0
@@ -304,7 +410,9 @@ class PolicyController:
 @dataclass
 class SchedulingMetrics:
     policy_name: str
-    starvation_threshold_ns: int = 5_000_000_000
+    starvation_threshold_ns: int = 400_000_000
+    request_sample_rate: float = 0.1
+    max_step_records: int = 10_000
     decision_count: int = 0
     total_decision_latency_ns: int = 0
     max_decision_latency_ns: int = 0
@@ -325,6 +433,16 @@ class SchedulingMetrics:
     failed_count: int = 0
     last_step_id: int = 0
     fallback_reasons: Dict[str, int] = field(default_factory=dict)
+    total_token_budget: int = 0
+    total_token_budget_used: int = 0
+    prefill_chunk_count: int = 0
+    minimum_slack_ms: float | None = None
+    max_urgent_requests: int = 0
+    step_records: list[dict[str, Any]] = field(default_factory=list)
+    request_samples: list[dict[str, Any]] = field(default_factory=list)
+    dropped_step_records: int = 0
+    _decision_latencies_us: list[float] = field(default_factory=list, repr=False)
+    _recorded_request_uids: set[int] = field(default_factory=set, repr=False)
     _starved_uids: set[int] = field(default_factory=set, repr=False)
 
     def record(
@@ -336,6 +454,7 @@ class SchedulingMetrics:
         cancelled_count: int = 0,
         failed_count: int = 0,
         maximum_waiting_age_ms: float = 0.0,
+        policy_name: str | None = None,
     ) -> None:
         self.decision_count += 1
         self.last_step_id = context.step_id
@@ -343,6 +462,7 @@ class SchedulingMetrics:
         self.max_decision_latency_ns = max(
             self.max_decision_latency_ns, decision.decision_latency_ns
         )
+        self._decision_latencies_us.append(decision.decision_latency_ns / 1_000)
         self.max_waiting_requests = max(
             self.max_waiting_requests, len(context.waiting_requests)
         )
@@ -354,6 +474,16 @@ class SchedulingMetrics:
         )
         self.cancelled_count = cancelled_count
         self.failed_count = failed_count
+        self.prefill_chunk_count += len(decision.prefill_chunk_sizes)
+        if decision.minimum_slack_ms is not None:
+            self.minimum_slack_ms = (
+                decision.minimum_slack_ms
+                if self.minimum_slack_ms is None
+                else min(self.minimum_slack_ms, decision.minimum_slack_ms)
+            )
+        self.max_urgent_requests = max(
+            self.max_urgent_requests, decision.urgent_request_count
+        )
         if fallback_reason:
             self.fallback_count += 1
             self.fallback_reasons[fallback_reason] = (
@@ -366,11 +496,40 @@ class SchedulingMetrics:
             if waiting_ns >= self.starvation_threshold_ns:
                 self._starved_uids.add(req.uid)
 
+        step_record = {
+            "step_id": context.step_id,
+            "timestamp_ns": context.current_timestamp_ns,
+            "policy": policy_name or self.policy_name,
+            "waiting_count": len(context.waiting_requests),
+            "running_count": len(context.running_requests),
+            "selected_prefill_count": len(decision.selected_prefill_requests),
+            "selected_prefill_tokens": sum(
+                size for _, size in decision.prefill_chunk_sizes
+            ),
+            "selected_decode_count": len(decision.selected_decode_requests),
+            "selected_decode_tokens": len(decision.selected_decode_requests),
+            "token_budget": decision.token_budget,
+            "token_budget_used": decision.token_budget_used,
+            "prefill_chunk_size": (
+                max((size for _, size in decision.prefill_chunk_sizes), default=0)
+            ),
+            "max_waiting_age_ms": maximum_waiting_age_ms,
+            "minimum_slack_ms": decision.minimum_slack_ms,
+            "urgent_request_count": decision.urgent_request_count,
+            "scheduler_decision_us": decision.decision_latency_ns / 1_000,
+        }
+        if len(self.step_records) < self.max_step_records:
+            self.step_records.append(step_record)
+        else:
+            self.dropped_step_records += 1
+
         batch = decision.batch
         if batch is None:
             self.idle_decision_count += 1
             return
 
+        self.total_token_budget += decision.token_budget
+        self.total_token_budget_used += decision.token_budget_used
         batch_size = len(batch.reqs)
         self.total_batch_requests += batch_size
         self.max_batch_requests = max(self.max_batch_requests, batch_size)
@@ -381,7 +540,30 @@ class SchedulingMetrics:
             self.decode_batch_count += 1
             self.total_decode_tokens += batch_size
 
-    def snapshot(self) -> Dict[str, int | float | str]:
+    def record_request(self, lifecycle) -> None:
+        if lifecycle.uid in self._recorded_request_uids:
+            return
+        self._recorded_request_uids.add(lifecycle.uid)
+        if self.request_sample_rate <= 0:
+            return
+        sample_bucket = (lifecycle.uid * 2654435761) % 10_000
+        if sample_bucket >= int(self.request_sample_rate * 10_000):
+            return
+        self.request_samples.append(lifecycle.terminal_snapshot())
+
+    @staticmethod
+    def _percentile(values: list[float], quantile: float) -> float:
+        if not values:
+            return 0.0
+        ordered = sorted(values)
+        rank = (len(ordered) - 1) * quantile
+        lower = math.floor(rank)
+        upper = math.ceil(rank)
+        if lower == upper:
+            return ordered[lower]
+        return ordered[lower] * (upper - rank) + ordered[upper] * (rank - lower)
+
+    def snapshot(self) -> Dict[str, Any]:
         count = self.decision_count
         return {
             "policy": self.policy_name,
@@ -390,6 +572,15 @@ class SchedulingMetrics:
                 self.total_decision_latency_ns / count / 1_000 if count else 0.0
             ),
             "decision_latency_max_us": self.max_decision_latency_ns / 1_000,
+            "decision_latency_p50_us": self._percentile(
+                self._decision_latencies_us, 0.50
+            ),
+            "decision_latency_p95_us": self._percentile(
+                self._decision_latencies_us, 0.95
+            ),
+            "decision_latency_p99_us": self._percentile(
+                self._decision_latencies_us, 0.99
+            ),
             "prefill_batch_count": self.prefill_batch_count,
             "decode_batch_count": self.decode_batch_count,
             "idle_decision_count": self.idle_decision_count,
@@ -411,6 +602,21 @@ class SchedulingMetrics:
             "policy_failure_count": self.policy_failure_count,
             "cancelled_count": self.cancelled_count,
             "failed_count": self.failed_count,
+            "token_budget_utilization": (
+                self.total_token_budget_used / self.total_token_budget
+                if self.total_token_budget
+                else 0.0
+            ),
+            "average_prefill_chunk_tokens": (
+                self.total_prefill_tokens / self.prefill_chunk_count
+                if self.prefill_chunk_count
+                else 0.0
+            ),
+            "minimum_slack_ms": self.minimum_slack_ms,
+            "max_urgent_requests": self.max_urgent_requests,
+            "step_records": self.step_records,
+            "dropped_step_records": self.dropped_step_records,
+            "request_samples": self.request_samples,
         }
 
     def write_json(self, path: str) -> None:

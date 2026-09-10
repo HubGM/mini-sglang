@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, List, NamedTuple, NoReturn, Set, Tuple, TypeAlias
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, List, NoReturn, Set, Tuple, TypeAlias
 
 import torch
 import torch.nn.functional as F
@@ -14,6 +15,7 @@ from minisgl.message import (
     BatchTokenizerMsg,
     DetokenizeMsg,
     ExitMsg,
+    ResetSchedulerMetricsBackendMsg,
     UserMsg,
 )
 from minisgl.utils import init_logger
@@ -30,8 +32,10 @@ from .lifecycle import (
 )
 from .policy import (
     PolicyController,
+    RequestSchedulingInfo,
     SchedulingContext,
     SchedulingMetrics,
+    SchedulingPolicyConfig,
     UpstreamDefaultPolicy,
     create_scheduling_policy,
 )
@@ -89,11 +93,15 @@ def _make_2d_indices(table_2d: torch.Tensor, ranges: List[Tuple[int, int, int]])
 
 
 # For overlap scheduling, we also need to cache some other data to avoid IMA
-class ForwardInput(NamedTuple):
+@dataclass
+class ForwardInput:
     batch: Batch
     sample_args: BatchSamplingArgs
     load_indices: torch.Tensor
     write_indices: torch.Tensor
+    dispatch_time_ns: int = 0
+    prefill_tokens: int = 0
+    decode_tokens: int = 0
 
 
 ForwardData: TypeAlias = "Tuple[ForwardInput, ForwardOutput]"
@@ -120,13 +128,36 @@ class Scheduler(SchedulerIOMixin):
         self.prefill_manager = PrefillManager(
             self.cache_manager, self.table_manager, self.decode_manager
         )
-        self.scheduling_policy = create_scheduling_policy(config.scheduling_policy)
+        policy_config = SchedulingPolicyConfig(
+            max_step_tokens=config.max_step_tokens,
+            max_prefill_chunk_tokens=config.max_prefill_chunk_tokens,
+            decode_reserve_ratio=config.decode_reserve_ratio,
+            max_consecutive_prefill_steps=config.max_consecutive_prefill_steps,
+            default_ttft_deadline_ms=config.default_ttft_deadline_ms,
+            default_e2e_deadline_ms=config.default_e2e_deadline_ms,
+            initial_prefill_ms_per_token=config.initial_prefill_ms_per_token,
+            initial_decode_step_ms=config.initial_decode_step_ms,
+            service_ewma_alpha=config.service_ewma_alpha,
+            max_wait_ms=config.max_wait_ms,
+            aging_start_ms=config.aging_start_ms,
+            aging_rate=config.aging_rate,
+        )
+        self.scheduling_policy = create_scheduling_policy(
+            config.scheduling_policy, policy_config
+        )
         self.policy_controller = PolicyController(
             active_policy=self.scheduling_policy,
             fallback_policy=UpstreamDefaultPolicy(),
             failure_threshold=config.policy_failure_threshold,
         )
-        self.scheduling_metrics = SchedulingMetrics(self.scheduling_policy.name)
+        self._metrics_config = {
+            "starvation_threshold_ns": int(
+                config.starvation_threshold_ms * 1_000_000
+            ),
+            "request_sample_rate": config.scheduler_request_sample_rate,
+            "max_step_records": config.scheduler_max_step_records,
+        }
+        self.scheduling_metrics = self._new_scheduling_metrics()
         self.scheduler_metrics_path = config.scheduler_metrics_path
         self.scheduler_decision_timing = config.scheduler_decision_timing
         self.current_batch_state: str | None = None
@@ -136,6 +167,9 @@ class Scheduler(SchedulerIOMixin):
         self._cancelled_uids: set[int] = set()
         self._released_uids: set[int] = set()
         self.step_id = 0
+        self.default_ttft_deadline_ms = config.default_ttft_deadline_ms
+        self.default_e2e_deadline_ms = config.default_e2e_deadline_ms
+        self.starvation_threshold_ms = config.starvation_threshold_ms
 
         from minisgl.server.health import HealthReporter
 
@@ -160,6 +194,22 @@ class Scheduler(SchedulerIOMixin):
             return
         batch, (_, next_tokens_cpu, copy_done) = last_data[0].batch, last_data[1]
         copy_done.synchronize()
+        elapsed_ms = (
+            max(
+                0,
+                time.monotonic_ns()
+                - getattr(last_data[0], "dispatch_time_ns", 0),
+            )
+            / 1_000_000
+            if getattr(last_data[0], "dispatch_time_ns", 0)
+            else 0.0
+        )
+        self.policy_controller.on_step_completed(
+            phase=batch.phase,
+            elapsed_ms=elapsed_ms,
+            prefill_tokens=getattr(last_data[0], "prefill_tokens", 0),
+            decode_tokens=getattr(last_data[0], "decode_tokens", 0),
+        )
         reply = BatchTokenizerMsg(data=[])
         ongoing_reqs = ongoing_data[0].batch.reqs if ongoing_data else []
         ongoing_uids = {req.uid for req in ongoing_reqs}
@@ -183,6 +233,7 @@ class Scheduler(SchedulerIOMixin):
             next_token_id = next_tokens_cpu[i]
             req.append_host(next_token_id.unsqueeze(0))
             if lifecycle is not None:
+                lifecycle.mark_first_token()
                 lifecycle.add_generated_token()
             next_token = int(next_token_id.item())
             finished = req.remain_len <= 0
@@ -206,6 +257,7 @@ class Scheduler(SchedulerIOMixin):
                 self.decode_manager.remove_req(req)
                 if lifecycle is not None:
                     lifecycle.complete()
+                    self._record_terminal_lifecycle(lifecycle)
                 self.policy_controller.on_request_finished(req.uid)
                 logger.debug_rank0("Request %s is finished", req)
             if req.uid not in ongoing_uids:
@@ -234,6 +286,20 @@ class Scheduler(SchedulerIOMixin):
                 input_tokens=input_len,
                 requested_output_tokens=msg.sampling_params.max_tokens,
                 deadline_ms=msg.sampling_params.deadline_ms,
+                ttft_deadline_ms=(
+                    msg.sampling_params.ttft_deadline_ms
+                    if msg.sampling_params.ttft_deadline_ms is not None
+                    else self.default_ttft_deadline_ms
+                ),
+                e2e_deadline_ms=(
+                    msg.sampling_params.e2e_deadline_ms
+                    if msg.sampling_params.e2e_deadline_ms is not None
+                    else (
+                        msg.sampling_params.deadline_ms
+                        if msg.sampling_params.deadline_ms is not None
+                        else self.default_e2e_deadline_ms
+                    )
+                ),
             )
             if msg.uid in self._cancelled_uids:
                 lifecycle.request_cancellation("cancelled_before_admission")
@@ -243,6 +309,7 @@ class Scheduler(SchedulerIOMixin):
                 return
             if input_len >= max_seq_len:
                 lifecycle.fail("input_too_long")
+                self._record_terminal_lifecycle(lifecycle)
                 self._send_terminal(lifecycle, "failed", error="input_too_long")
                 return logger.warning_rank0(
                     f"Input sequence len {input_len} exceeds {max_seq_len}, "
@@ -258,6 +325,8 @@ class Scheduler(SchedulerIOMixin):
             lifecycle.transition(RequestLifecycleState.WAITING)
         elif isinstance(msg, AbortBackendMsg):
             self.abort_req(msg.uid, reason=msg.reason)
+        elif isinstance(msg, ResetSchedulerMetricsBackendMsg):
+            self.scheduling_metrics = self._new_scheduling_metrics()
         else:
             logger.error(f"Unknown message type: {type(msg)}")
             raise NotImplementedError
@@ -302,6 +371,7 @@ class Scheduler(SchedulerIOMixin):
         if lifecycle is None:
             return
         lifecycle.finish_cancelled(lifecycle.terminal_reason or "cancelled")
+        self._record_terminal_lifecycle(lifecycle)
         self.policy_controller.on_request_cancelled(lifecycle.uid)
         if reply is None:
             self._send_terminal(lifecycle, "cancelled")
@@ -360,7 +430,18 @@ class Scheduler(SchedulerIOMixin):
             if req.uid not in self._released_uids:
                 self._free_req_resources(req)
             if lifecycle is not None and lifecycle.fail(reason):
+                self._record_terminal_lifecycle(lifecycle)
                 self._send_terminal(lifecycle, "failed", error=reason)
+
+    def _record_terminal_lifecycle(self, lifecycle: RequestLifecycle) -> None:
+        lifecycle.mark_starvation(self.starvation_threshold_ms)
+        self.scheduling_metrics.record_request(lifecycle)
+
+    def _new_scheduling_metrics(self) -> SchedulingMetrics:
+        return SchedulingMetrics(
+            self.scheduling_policy.name,
+            **self._metrics_config,
+        )
 
     def _assert_state_consistency(self) -> None:
         waiting_uids = {req.uid for req in self.prefill_manager.pending_list}
@@ -419,23 +500,117 @@ class Scheduler(SchedulerIOMixin):
                 sample_args=self.engine.sampler.prepare(batch),
                 load_indices=load_indices,
                 write_indices=write_indices,
+                prefill_tokens=(
+                    sum(req.extend_len for req in batch.reqs)
+                    if batch.is_prefill
+                    else 0
+                ),
+                decode_tokens=len(batch.reqs) if batch.is_decode else 0,
             )
         except Exception as exc:
             if allocated is not None:
                 self.cache_manager._free(allocated)
             raise BatchPreparationError(batch.phase, batch, exc) from exc
 
+    def _request_scheduling_info(
+        self,
+        waiting_requests,
+        running_requests,
+    ) -> tuple[RequestSchedulingInfo, ...]:
+        result: list[RequestSchedulingInfo] = []
+        seen: set[int] = set()
+        for pending in waiting_requests:
+            lifecycle = self.lifecycle_registry.get(pending.uid)
+            if lifecycle is None:
+                continue
+            cached_len = (
+                pending.chunked_req.cached_len
+                if pending.chunked_req is not None
+                else 0
+            )
+            result.append(
+                RequestSchedulingInfo(
+                    uid=pending.uid,
+                    enqueue_time_ns=(
+                        lifecycle.enqueue_time_ns or lifecycle.created_time_ns
+                    ),
+                    first_scheduled_time_ns=lifecycle.first_scheduled_time_ns,
+                    first_token_time_ns=lifecycle.first_token_time_ns,
+                    input_tokens=lifecycle.input_tokens,
+                    remaining_input_tokens=max(
+                        0, lifecycle.input_tokens - cached_len
+                    ),
+                    requested_output_tokens=lifecycle.requested_output_tokens,
+                    generated_tokens=lifecycle.generated_tokens,
+                    ttft_deadline_ms=(
+                        lifecycle.ttft_deadline_ms
+                        if lifecycle.ttft_deadline_ms is not None
+                        else self.default_ttft_deadline_ms
+                    ),
+                    e2e_deadline_ms=(
+                        lifecycle.e2e_deadline_ms
+                        if lifecycle.e2e_deadline_ms is not None
+                        else (
+                            lifecycle.deadline_ms
+                            if lifecycle.deadline_ms is not None
+                            else self.default_e2e_deadline_ms
+                        )
+                    ),
+                )
+            )
+            seen.add(pending.uid)
+        for req in running_requests:
+            if req.uid in seen:
+                continue
+            lifecycle = self.lifecycle_registry.get(req.uid)
+            if lifecycle is None:
+                continue
+            result.append(
+                RequestSchedulingInfo(
+                    uid=req.uid,
+                    enqueue_time_ns=(
+                        lifecycle.enqueue_time_ns or lifecycle.created_time_ns
+                    ),
+                    first_scheduled_time_ns=lifecycle.first_scheduled_time_ns,
+                    first_token_time_ns=lifecycle.first_token_time_ns,
+                    input_tokens=lifecycle.input_tokens,
+                    remaining_input_tokens=0,
+                    requested_output_tokens=lifecycle.requested_output_tokens,
+                    generated_tokens=lifecycle.generated_tokens,
+                    ttft_deadline_ms=(
+                        lifecycle.ttft_deadline_ms
+                        if lifecycle.ttft_deadline_ms is not None
+                        else self.default_ttft_deadline_ms
+                    ),
+                    e2e_deadline_ms=(
+                        lifecycle.e2e_deadline_ms
+                        if lifecycle.e2e_deadline_ms is not None
+                        else (
+                            lifecycle.deadline_ms
+                            if lifecycle.deadline_ms is not None
+                            else self.default_e2e_deadline_ms
+                        )
+                    ),
+                )
+            )
+        return tuple(result)
+
     def _schedule_next_batch(self) -> ForwardInput | None:
         self.step_id += 1
+        waiting_requests = tuple(self.prefill_manager.pending_list)
+        running_requests = tuple(self.decode_manager.running_reqs)
         context = SchedulingContext(
-            waiting_requests=tuple(self.prefill_manager.pending_list),
-            running_requests=tuple(self.decode_manager.running_reqs),
+            waiting_requests=waiting_requests,
+            running_requests=running_requests,
             available_token_budget=self.prefill_budget,
             available_kv_blocks=self.cache_manager.available_size,
             current_batch_state=self.current_batch_state,
             current_timestamp_ns=time.monotonic_ns(),
             step_id=self.step_id,
             measure_decision_overhead=self.scheduler_decision_timing,
+            request_info=self._request_scheduling_info(
+                waiting_requests, running_requests
+            ),
         )
         pending_snapshot = tuple(self.prefill_manager.pending_list)
         chunked_snapshot = {
@@ -443,8 +618,16 @@ class Scheduler(SchedulerIOMixin):
         }
         scheduled_prefill_batches: list[Batch] = []
 
-        def schedule_prefill(budget: int) -> Batch | None:
-            batch = self.prefill_manager.schedule_next_batch(budget)
+        def schedule_prefill(
+            budget: int,
+            priority_uids=None,
+            max_chunk_tokens=None,
+        ) -> Batch | None:
+            batch = self.prefill_manager.schedule_next_batch(
+                budget,
+                priority_uids=priority_uids,
+                max_chunk_tokens=max_chunk_tokens,
+            )
             if batch is not None:
                 scheduled_prefill_batches.append(batch)
             return batch
@@ -493,6 +676,7 @@ class Scheduler(SchedulerIOMixin):
             maximum_waiting_age_ms=self.lifecycle_registry.maximum_waiting_age_ms(
                 context.current_timestamp_ns
             ),
+            policy_name=selection.policy_name,
         )
         batch = decision.batch
         if batch is not None:
@@ -505,6 +689,11 @@ class Scheduler(SchedulerIOMixin):
                     and lifecycle.state == RequestLifecycleState.WAITING
                 ):
                     lifecycle.transition(RequestLifecycleState.PREFILL_SELECTED)
+                if lifecycle is not None:
+                    slack_by_uid = dict(decision.request_slack_ms)
+                    lifecycle.mark_first_schedule_slack(
+                        slack_by_uid.get(req.uid)
+                    )
             batch.reqs = [
                 req for req in batch.reqs if req.uid not in self._cancelled_uids
             ]
@@ -529,6 +718,7 @@ class Scheduler(SchedulerIOMixin):
         self.token_pool.view(-1)[input.write_indices] = output.next_tokens_gpu
 
     def _forward(self, forward_input: ForwardInput) -> ForwardOutput:
+        forward_input.dispatch_time_ns = time.monotonic_ns()
         self._load_token_ids(forward_input)
         batch, sample_args = forward_input.batch, forward_input.sample_args
         for req in batch.reqs:

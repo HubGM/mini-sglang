@@ -1,26 +1,29 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Iterable, Set
+from typing import Iterable, List, Sequence
 
 from minisgl.core import Batch, Req
 
 
 @dataclass
 class DecodeManager:
-    running_reqs: Set[Req] = field(default_factory=set)
+    running_reqs: List[Req] = field(default_factory=list)
 
     def add_reqs(self, reqs: Iterable[Req]) -> None:
-        self.running_reqs.update(req for req in reqs if req.can_decode())
+        existing = {req.uid for req in self.running_reqs}
+        for req in reqs:
+            if req.can_decode() and req.uid not in existing:
+                self.running_reqs.append(req)
+                existing.add(req.uid)
 
     def remove_req(self, req: Req) -> None:
-        self.running_reqs.discard(req)
+        self.running_reqs = [item for item in self.running_reqs if item is not req]
 
     def abort_req(self, uid: int) -> Req | None:
-        for req in tuple(self.running_reqs):
+        for index, req in enumerate(self.running_reqs):
             if req.uid == uid:
-                self.running_reqs.remove(req)
-                return req
+                return self.running_reqs.pop(index)
         return None
 
     def contains_uid(self, uid: int) -> bool:
@@ -30,10 +33,26 @@ class DecodeManager:
     def inflight_tokens(self) -> int:
         return sum(req.remain_len for req in self.running_reqs)
 
-    def schedule_next_batch(self) -> Batch | None:
+    def schedule_next_batch(
+        self,
+        max_requests: int | None = None,
+        priority_uids: Sequence[int] | None = None,
+    ) -> Batch | None:
         if not self.runnable:
             return None
-        return Batch(reqs=list(self.running_reqs), phase="decode")
+        req_by_uid = {req.uid: req for req in self.running_reqs}
+        ordered: list[Req] = []
+        if priority_uids is not None:
+            ordered.extend(
+                req_by_uid[uid] for uid in priority_uids if uid in req_by_uid
+            )
+        selected_uids = {req.uid for req in ordered}
+        ordered.extend(
+            req for req in self.running_reqs if req.uid not in selected_uids
+        )
+        if max_requests is not None:
+            ordered = ordered[:max_requests]
+        return Batch(reqs=ordered, phase="decode") if ordered else None
 
     @property
     def runnable(self) -> bool:

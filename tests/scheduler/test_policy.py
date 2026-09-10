@@ -5,6 +5,7 @@ import time
 import pytest
 
 from minisgl.core import Batch
+from minisgl.scheduler.lifecycle import RequestLifecycle, RequestLifecycleState
 from minisgl.scheduler.policy import (
     SchedulingContext,
     SchedulingMetrics,
@@ -129,3 +130,40 @@ def test_scheduler_metrics_do_not_export_request_ids() -> None:
     assert "uid" not in snapshot
     assert "request_id" not in snapshot
     assert "prompt" not in snapshot
+
+
+def test_scheduler_metrics_capture_step_budget_and_request_sample() -> None:
+    waiting = [FakePending(9)]
+    context = make_context(waiting=waiting)
+    req = FakeReq(9, extend_len=8)
+    decision = UpstreamDefaultPolicy().select(
+        context,
+        lambda _: Batch(reqs=[req], phase="prefill"),
+        lambda: None,
+    )
+    metrics = SchedulingMetrics(
+        "upstream_default",
+        request_sample_rate=1.0,
+        max_step_records=4,
+    )
+    metrics.record(context, decision, maximum_waiting_age_ms=12.0)
+
+    lifecycle = RequestLifecycle(
+        uid=9,
+        input_tokens=8,
+        requested_output_tokens=2,
+    )
+    lifecycle.transition(RequestLifecycleState.WAITING)
+    lifecycle.transition(RequestLifecycleState.PREFILL_SELECTED)
+    lifecycle.transition(RequestLifecycleState.PREFILL_RUNNING)
+    lifecycle.transition(RequestLifecycleState.DECODING)
+    lifecycle.mark_first_token()
+    lifecycle.complete()
+    metrics.record_request(lifecycle)
+    snapshot = metrics.snapshot()
+
+    assert snapshot["token_budget_utilization"] == 0.25
+    assert snapshot["decision_latency_p95_us"] >= 0
+    assert snapshot["step_records"][0]["selected_prefill_tokens"] == 8
+    assert len(snapshot["request_samples"]) == 1
+    assert "uid" not in snapshot["request_samples"][0]

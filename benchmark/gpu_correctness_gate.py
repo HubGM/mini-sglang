@@ -40,6 +40,18 @@ def main() -> None:
     parser.add_argument("--model", default="/models/Qwen3-8B")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--seed", type=int, default=20260719)
+    parser.add_argument(
+        "--policy",
+        choices=(
+            "upstream_default",
+            "token_budget",
+            "deadline_aware",
+            "deadline_aging",
+        ),
+        default="upstream_default",
+    )
+    parser.add_argument("--max-step-tokens", type=int, default=512)
+    parser.add_argument("--max-prefill-chunk-tokens", type=int, default=256)
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -50,19 +62,32 @@ def main() -> None:
         cuda_graph_max_bs=8,
         max_running_req=8,
         max_extend_tokens=4096,
-        scheduling_policy="upstream_default",
+        scheduling_policy=args.policy,
+        max_step_tokens=args.max_step_tokens,
+        max_prefill_chunk_tokens=args.max_prefill_chunk_tokens,
+        decode_reserve_ratio=0.5,
+        max_consecutive_prefill_steps=1,
+        default_ttft_deadline_ms=200.0,
+        default_e2e_deadline_ms=1200.0,
     )
     try:
         outputs = llm.generate(
             synthetic_prompts(args.seed),
-            SamplingParams(max_tokens=16, temperature=0.0),
+            SamplingParams(
+                max_tokens=16,
+                temperature=0.0,
+                ttft_deadline_ms=200.0,
+                e2e_deadline_ms=1200.0,
+            ),
         )
     finally:
         llm.shutdown()
 
     result = {
         "seed": args.seed,
-        "policy": "upstream_default",
+        "policy": args.policy,
+        "max_step_tokens": args.max_step_tokens,
+        "max_prefill_chunk_tokens": args.max_prefill_chunk_tokens,
         "temperature": 0.0,
         "max_tokens": 16,
         "prompt_count": len(outputs),

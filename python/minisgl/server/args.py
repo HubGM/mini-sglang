@@ -198,8 +198,104 @@ def parse_args(args: List[str], run_shell: bool = False) -> Tuple[ServerArgs, bo
         "--scheduling-policy",
         type=str,
         default=ServerArgs.scheduling_policy,
-        choices=["upstream_default"],
+        choices=[
+            "upstream_default",
+            "token_budget",
+            "deadline_aware",
+            "deadline_aging",
+        ],
         help="The engine-level token scheduling policy.",
+    )
+
+    parser.add_argument(
+        "--max-step-tokens",
+        type=int,
+        default=ServerArgs.max_step_tokens,
+        help="Maximum prefill or decode tokens selected in one engine step.",
+    )
+    parser.add_argument(
+        "--max-prefill-chunk-tokens",
+        type=int,
+        default=ServerArgs.max_prefill_chunk_tokens,
+        help="Maximum input tokens from one request in a prefill step.",
+    )
+    parser.add_argument(
+        "--decode-reserve-ratio",
+        type=float,
+        default=ServerArgs.decode_reserve_ratio,
+        help="Target temporal share of decode steps while both phases are runnable.",
+    )
+    parser.add_argument(
+        "--max-consecutive-prefill-steps",
+        type=int,
+        default=ServerArgs.max_consecutive_prefill_steps,
+        help="Maximum prefill steps while decode requests are runnable.",
+    )
+    parser.add_argument(
+        "--default-ttft-deadline-ms",
+        type=float,
+        default=ServerArgs.default_ttft_deadline_ms,
+        help="Default relative TTFT deadline used by deadline policies.",
+    )
+    parser.add_argument(
+        "--default-e2e-deadline-ms",
+        type=float,
+        default=ServerArgs.default_e2e_deadline_ms,
+        help="Default relative E2E deadline used by deadline policies.",
+    )
+    parser.add_argument(
+        "--initial-prefill-ms-per-token",
+        type=float,
+        default=ServerArgs.initial_prefill_ms_per_token,
+        help="Conservative initial prefill service estimate.",
+    )
+    parser.add_argument(
+        "--initial-decode-step-ms",
+        type=float,
+        default=ServerArgs.initial_decode_step_ms,
+        help="Conservative initial decode-step service estimate.",
+    )
+    parser.add_argument(
+        "--service-ewma-alpha",
+        type=float,
+        default=ServerArgs.service_ewma_alpha,
+        help="EWMA weight for observed prefill/decode service time.",
+    )
+    parser.add_argument(
+        "--max-wait-ms",
+        type=float,
+        default=ServerArgs.max_wait_ms,
+        help="Waiting age that promotes a request to the urgent set.",
+    )
+    parser.add_argument(
+        "--aging-start-ms",
+        type=float,
+        default=ServerArgs.aging_start_ms,
+        help="Waiting age at which deadline priority begins improving.",
+    )
+    parser.add_argument(
+        "--aging-rate",
+        type=float,
+        default=ServerArgs.aging_rate,
+        help="Priority slack reduction per millisecond after aging starts.",
+    )
+    parser.add_argument(
+        "--starvation-threshold-ms",
+        type=float,
+        default=ServerArgs.starvation_threshold_ms,
+        help="Fixed waiting threshold used for starvation telemetry.",
+    )
+    parser.add_argument(
+        "--scheduler-request-sample-rate",
+        type=float,
+        default=ServerArgs.scheduler_request_sample_rate,
+        help="Fraction of terminal request lifecycle records retained.",
+    )
+    parser.add_argument(
+        "--scheduler-max-step-records",
+        type=int,
+        default=ServerArgs.scheduler_max_step_records,
+        help="Bounded number of low-cardinality scheduler step records.",
     )
 
     parser.add_argument(
@@ -285,6 +381,16 @@ def parse_args(args: List[str], run_shell: bool = False) -> Tuple[ServerArgs, bo
     del kwargs["tensor_parallel_size"]
 
     result = ServerArgs(**kwargs)
+    if result.max_step_tokens <= 0 or result.max_prefill_chunk_tokens <= 0:
+        parser.error("scheduler token budgets must be positive")
+    if not 0.0 <= result.decode_reserve_ratio <= 1.0:
+        parser.error("--decode-reserve-ratio must be between 0 and 1")
+    if result.max_consecutive_prefill_steps < 0:
+        parser.error("--max-consecutive-prefill-steps must be non-negative")
+    if not 0.0 < result.service_ewma_alpha <= 1.0:
+        parser.error("--service-ewma-alpha must be in (0, 1]")
+    if not 0.0 <= result.scheduler_request_sample_rate <= 1.0:
+        parser.error("--scheduler-request-sample-rate must be between 0 and 1")
     logger = init_logger(__name__)
     logger.info(f"Parsed arguments:\n{result}")
     return result, run_shell

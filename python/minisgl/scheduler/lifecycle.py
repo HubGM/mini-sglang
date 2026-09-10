@@ -78,6 +78,8 @@ class RequestLifecycle:
     input_tokens: int
     requested_output_tokens: int
     deadline_ms: float | None = None
+    ttft_deadline_ms: float | None = None
+    e2e_deadline_ms: float | None = None
     state: RequestLifecycleState = RequestLifecycleState.CREATED
     created_time_ns: int = field(default_factory=time.monotonic_ns)
     enqueue_time_ns: int | None = None
@@ -85,9 +87,12 @@ class RequestLifecycle:
     prefill_start_time_ns: int | None = None
     prefill_end_time_ns: int | None = None
     first_decode_time_ns: int | None = None
+    first_token_time_ns: int | None = None
     finish_time_ns: int | None = None
     cancellation_time_ns: int | None = None
     generated_tokens: int = 0
+    deadline_slack_at_first_schedule_ms: float | None = None
+    starvation: bool = False
     terminal_reason: str | None = None
     _finish_callback_claimed: bool = field(default=False, repr=False)
     _sse_stop_claimed: bool = field(default=False, repr=False)
@@ -200,9 +205,60 @@ class RequestLifecycle:
         return max(0, end_ns - self.enqueue_time_ns) / 1_000_000
 
     def deadline_slack_ms(self, now_ns: int | None = None) -> float | None:
-        if self.deadline_ms is None:
+        deadline_ms = (
+            self.e2e_deadline_ms
+            if self.e2e_deadline_ms is not None
+            else self.deadline_ms
+        )
+        if deadline_ms is None:
             return None
-        return self.deadline_ms - self.age_ms(now_ns)
+        return deadline_ms - self.age_ms(now_ns)
+
+    def mark_first_schedule_slack(self, slack_ms: float | None) -> None:
+        if self.deadline_slack_at_first_schedule_ms is None:
+            self.deadline_slack_at_first_schedule_ms = slack_ms
+
+    def mark_first_token(self, now_ns: int | None = None) -> None:
+        if self.first_token_time_ns is None:
+            self.first_token_time_ns = now_ns or time.monotonic_ns()
+
+    def mark_starvation(self, threshold_ms: float) -> None:
+        if self.waiting_time_ms() >= threshold_ms:
+            self.starvation = True
+
+    @staticmethod
+    def _elapsed_ms(start_ns: int | None, end_ns: int | None) -> float | None:
+        if start_ns is None or end_ns is None:
+            return None
+        return max(0, end_ns - start_ns) / 1_000_000
+
+    def terminal_snapshot(self) -> Dict[str, int | float | str | bool | None]:
+        return {
+            "terminal_state": self.state.value,
+            "input_tokens": self.input_tokens,
+            "requested_output_tokens": self.requested_output_tokens,
+            "generated_tokens": self.generated_tokens,
+            "first_schedule_ms": self._elapsed_ms(
+                self.enqueue_time_ns, self.first_scheduled_time_ns
+            ),
+            "first_token_ms": self._elapsed_ms(
+                self.enqueue_time_ns, self.first_token_time_ns
+            ),
+            "finish_ms": self._elapsed_ms(
+                self.enqueue_time_ns, self.finish_time_ns
+            ),
+            "waiting_time_ms": self.waiting_time_ms(self.finish_time_ns),
+            "ttft_ms": self._elapsed_ms(
+                self.enqueue_time_ns, self.first_token_time_ns
+            ),
+            "e2e_ms": self._elapsed_ms(
+                self.enqueue_time_ns, self.finish_time_ns
+            ),
+            "deadline_slack_at_first_schedule_ms": (
+                self.deadline_slack_at_first_schedule_ms
+            ),
+            "starvation": self.starvation,
+        }
 
     def aggregate_snapshot(self, now_ns: int | None = None) -> Dict[str, int | float | str | None]:
         return {
@@ -213,7 +269,13 @@ class RequestLifecycle:
             "scheduling_age_ms": self.age_ms(now_ns),
             "waiting_time_ms": self.waiting_time_ms(now_ns),
             "deadline_ms": self.deadline_ms,
+            "ttft_deadline_ms": self.ttft_deadline_ms,
+            "e2e_deadline_ms": self.e2e_deadline_ms,
             "deadline_slack_ms": self.deadline_slack_ms(now_ns),
+            "deadline_slack_at_first_schedule_ms": (
+                self.deadline_slack_at_first_schedule_ms
+            ),
+            "starvation": self.starvation,
             "terminal_reason": self.terminal_reason,
         }
 
@@ -229,6 +291,8 @@ class LifecycleRegistry:
         input_tokens: int,
         requested_output_tokens: int,
         deadline_ms: float | None = None,
+        ttft_deadline_ms: float | None = None,
+        e2e_deadline_ms: float | None = None,
     ) -> RequestLifecycle:
         if uid in self.requests:
             raise LifecycleTransitionError(f"Duplicate request uid {uid}")
@@ -237,6 +301,8 @@ class LifecycleRegistry:
             input_tokens=input_tokens,
             requested_output_tokens=requested_output_tokens,
             deadline_ms=deadline_ms,
+            ttft_deadline_ms=ttft_deadline_ms,
+            e2e_deadline_ms=e2e_deadline_ms,
         )
         self.requests[uid] = lifecycle
         return lifecycle

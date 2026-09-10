@@ -18,6 +18,8 @@ from minisgl.message import (
     BaseTokenizerMsg,
     BatchFrontendMsg,
     AbortMsg,
+    ResetSchedulerMetricsMsg,
+    ShutdownMsg,
     TokenizeMsg,
     UserReply,
 )
@@ -83,6 +85,8 @@ class OpenAICompletionRequest(BaseModel):
 
     ignore_eos: bool = False
     deadline_ms: float | None = None
+    ttft_deadline_ms: float | None = None
+    e2e_deadline_ms: float | None = None
 
 
 class ModelCard(BaseModel):
@@ -315,6 +319,9 @@ class FrontendManager:
         self.send_tokenizer.stop()
         self.recv_tokenizer.stop()
 
+    async def request_backend_shutdown(self) -> None:
+        await self.send_one(ShutdownMsg())
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -322,6 +329,12 @@ async def lifespan(_: FastAPI):
     # shutdown code here
     global _GLOBAL_STATE
     if _GLOBAL_STATE is not None:
+        try:
+            await asyncio.wait_for(
+                _GLOBAL_STATE.request_backend_shutdown(), timeout=2.0
+            )
+        except Exception:
+            logger.exception("Failed to request an orderly backend shutdown")
         _GLOBAL_STATE.shutdown()
 
 
@@ -375,6 +388,8 @@ async def v1_completions(req: OpenAICompletionRequest, request: Request):
                 ignore_eos=req.ignore_eos,
                 max_tokens=req.max_tokens,
                 deadline_ms=req.deadline_ms,
+                ttft_deadline_ms=req.ttft_deadline_ms,
+                e2e_deadline_ms=req.e2e_deadline_ms,
             ),
         )
     )
@@ -408,6 +423,14 @@ async def cancel_request(uid: int):
     state = get_global_state()
     accepted = await state.abort_user(uid, reason="explicit_cancel")
     return {"uid": uid, "cancel_accepted": accepted}
+
+
+@app.post("/v1/scheduler/metrics/reset")
+async def reset_scheduler_metrics():
+    state = get_global_state()
+    state.require_ready()
+    await state.send_one(ResetSchedulerMetricsMsg())
+    return {"accepted": True}
 
 
 async def shell_completion(req: OpenAICompletionRequest):

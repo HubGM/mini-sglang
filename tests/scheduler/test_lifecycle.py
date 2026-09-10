@@ -123,3 +123,32 @@ def test_registry_reports_only_low_cardinality_terminal_counts() -> None:
         "failed": 1,
     }
     assert set(registry.terminal_uids()) == {10, 20}
+
+
+def test_terminal_snapshot_has_relative_timing_but_no_request_identity() -> None:
+    lifecycle = RequestLifecycle(
+        uid=99,
+        input_tokens=8,
+        requested_output_tokens=4,
+        created_time_ns=1_000_000_000,
+    )
+    lifecycle.transition(RequestLifecycleState.WAITING, now_ns=1_010_000_000)
+    lifecycle.transition(
+        RequestLifecycleState.PREFILL_SELECTED,
+        now_ns=1_020_000_000,
+    )
+    lifecycle.mark_first_schedule_slack(-5.0)
+    lifecycle.mark_first_token(now_ns=1_030_000_000)
+    lifecycle.finish_time_ns = 1_040_000_000
+    lifecycle.state = RequestLifecycleState.COMPLETED
+    lifecycle.mark_starvation(5.0)
+
+    snapshot = lifecycle.terminal_snapshot()
+
+    assert snapshot["first_schedule_ms"] == 10.0
+    assert snapshot["ttft_ms"] == 20.0
+    assert snapshot["e2e_ms"] == 30.0
+    assert snapshot["deadline_slack_at_first_schedule_ms"] == -5.0
+    assert snapshot["starvation"] is True
+    assert "uid" not in snapshot
+    assert "prompt" not in snapshot

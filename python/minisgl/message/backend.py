@@ -40,3 +40,8 @@ class UserMsg(BaseBackendMsg):
 class AbortBackendMsg(BaseBackendMsg):
     uid: int
     reason: str = "client_cancelled"
+
+
+@dataclass
+class ResetSchedulerMetricsBackendMsg(BaseBackendMsg):
+    pass

@@ -23,3 +23,15 @@ def test_cancellation_message_reaches_scheduler_boundary() -> None:
 
     assert AbortMsg(uid=1).uid == 1
     assert AbortBackendMsg(uid=1).uid == 1
+
+
+def test_metrics_reset_message_reaches_scheduler_boundary() -> None:
+    from minisgl.message import (
+        ResetSchedulerMetricsBackendMsg,
+        ResetSchedulerMetricsMsg,
+    )
+
+    assert isinstance(ResetSchedulerMetricsMsg(), ResetSchedulerMetricsMsg)
+    assert isinstance(
+        ResetSchedulerMetricsBackendMsg(), ResetSchedulerMetricsBackendMsg
+    )

@@ -14,9 +14,13 @@ from minisgl.message import (
     BatchFrontendMsg,
     BatchTokenizerMsg,
     DetokenizeMsg,
+    ResetSchedulerMetricsBackendMsg,
+    ResetSchedulerMetricsMsg,
+    ShutdownMsg,
     TokenizeMsg,
     UserMsg,
     UserReply,
+    ExitMsg,
 )
 from minisgl.utils import ZmqPullQueue, ZmqPushQueue, init_logger
 from transformers import AutoTokenizer, LlamaTokenizer
@@ -72,8 +76,16 @@ def tokenize_worker(
             detokenize_msg = [m for m in pending_msg if isinstance(m, DetokenizeMsg)]
             tokenize_msg = [m for m in pending_msg if isinstance(m, TokenizeMsg)]
             abort_msg = [m for m in pending_msg if isinstance(m, AbortMsg)]
+            reset_metrics_msg = [
+                m for m in pending_msg if isinstance(m, ResetSchedulerMetricsMsg)
+            ]
+            shutdown_msg = [m for m in pending_msg if isinstance(m, ShutdownMsg)]
             assert (
-                len(detokenize_msg) + len(tokenize_msg) + len(abort_msg)
+                len(detokenize_msg)
+                + len(tokenize_msg)
+                + len(abort_msg)
+                + len(reset_metrics_msg)
+                + len(shutdown_msg)
                 == len(pending_msg)
             )
             if len(detokenize_msg) > 0:
@@ -122,6 +134,12 @@ def tokenize_worker(
                 if len(batch_output.data) == 1:
                     batch_output = batch_output.data[0]
                 send_backend.put(batch_output)
+
+            if reset_metrics_msg:
+                send_backend.put(ResetSchedulerMetricsBackendMsg())
+            if shutdown_msg:
+                send_backend.put(ExitMsg())
+                break
     except KeyboardInterrupt:
         pass
     except BaseException as exc:

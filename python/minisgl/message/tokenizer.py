@@ -44,3 +44,13 @@ class TokenizeMsg(BaseTokenizerMsg):
 class AbortMsg(BaseTokenizerMsg):
     uid: int
     reason: str = "client_cancelled"
+
+
+@dataclass
+class ResetSchedulerMetricsMsg(BaseTokenizerMsg):
+    pass
+
+
+@dataclass
+class ShutdownMsg(BaseTokenizerMsg):
+    pass

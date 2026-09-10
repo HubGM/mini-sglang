@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, List, Tuple
+from typing import TYPE_CHECKING, List, Sequence, Tuple
 
 import torch
 from minisgl.core import Batch, Req
@@ -34,6 +34,7 @@ class PrefillAdder:
     reserved_size: int
     cache_manager: CacheManager
     table_manager: TableManager
+    max_chunk_tokens: int | None = None
 
     def _try_allocate_one(self, req: PendingReq) -> Tuple[BaseCacheHandle, int] | None:
         if self.table_manager.available_size == 0:
@@ -68,7 +69,11 @@ class PrefillAdder:
         cached_len: int,
     ) -> Req:
         remain_len = pending_req.input_len - cached_len
-        chunk_size = min(self.token_budget, remain_len)
+        chunk_size = min(
+            self.token_budget,
+            remain_len,
+            self.max_chunk_tokens or remain_len,
+        )
         is_chunked = chunk_size < remain_len
         CLS = ChunkedReq if is_chunked else Req
         self.token_budget -= chunk_size
@@ -135,7 +140,12 @@ class PrefillManager:
     def contains_uid(self, uid: int) -> bool:
         return any(req.uid == uid for req in self.pending_list)
 
-    def schedule_next_batch(self, prefill_budget: int) -> Batch | None:
+    def schedule_next_batch(
+        self,
+        prefill_budget: int,
+        priority_uids: Sequence[int] | None = None,
+        max_chunk_tokens: int | None = None,
+    ) -> Batch | None:
         if len(self.pending_list) == 0:
             return None
 
@@ -145,21 +155,44 @@ class PrefillManager:
             reserved_size=self.decode_manager.inflight_tokens,
             cache_manager=self.cache_manager,
             table_manager=self.table_manager,
+            max_chunk_tokens=max_chunk_tokens,
         )
         reqs: List[Req] = []
         chunked_list: List[PendingReq] = []
-        for pending_req in self.pending_list:
+        if priority_uids is None:
+            ordered_pending = list(self.pending_list)
+        else:
+            req_by_uid = {req.uid: req for req in self.pending_list}
+            ordered_pending = [
+                req_by_uid[uid] for uid in priority_uids if uid in req_by_uid
+            ]
+            selected_uids = {req.uid for req in ordered_pending}
+            ordered_pending.extend(
+                req
+                for req in self.pending_list
+                if req.uid not in selected_uids
+            )
+
+        completed_uids: set[int] = set()
+        for pending_req in ordered_pending:
             if req := adder.try_add_one(pending_req):
                 pending_req.chunked_req = None
                 if isinstance(req, ChunkedReq):
                     pending_req.chunked_req = req
                     chunked_list.append(pending_req)
+                else:
+                    completed_uids.add(pending_req.uid)
                 reqs.append(req)
             else:
                 break  # We cannot add more requests
         if len(reqs) == 0:
             return None
-        self.pending_list = chunked_list + self.pending_list[len(reqs) :]
+        chunked_uids = {req.uid for req in chunked_list}
+        self.pending_list = chunked_list + [
+            req
+            for req in self.pending_list
+            if req.uid not in completed_uids and req.uid not in chunked_uids
+        ]
         return Batch(reqs=reqs, phase="prefill")
 
     @property
