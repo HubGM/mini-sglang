@@ -79,7 +79,10 @@ class RequestLifecycle:
     requested_output_tokens: int
     deadline_ms: float | None = None
     ttft_deadline_ms: float | None = None
+    tpot_deadline_ms: float | None = None
     e2e_deadline_ms: float | None = None
+    request_class: str | None = None
+    request_role: str | None = None
     state: RequestLifecycleState = RequestLifecycleState.CREATED
     created_time_ns: int = field(default_factory=time.monotonic_ns)
     enqueue_time_ns: int | None = None
@@ -88,6 +91,7 @@ class RequestLifecycle:
     prefill_end_time_ns: int | None = None
     first_decode_time_ns: int | None = None
     first_token_time_ns: int | None = None
+    last_token_time_ns: int | None = None
     finish_time_ns: int | None = None
     cancellation_time_ns: int | None = None
     generated_tokens: int = 0
@@ -187,8 +191,7 @@ class RequestLifecycle:
             self.generated_tokens += 1
 
     def mark_prefill_end(self, now_ns: int | None = None) -> None:
-        if self.prefill_end_time_ns is None:
-            self.prefill_end_time_ns = now_ns or time.monotonic_ns()
+        self.prefill_end_time_ns = now_ns or time.monotonic_ns()
 
     def mark_first_decode(self, now_ns: int | None = None) -> None:
         if self.first_decode_time_ns is None:
@@ -218,9 +221,14 @@ class RequestLifecycle:
         if self.deadline_slack_at_first_schedule_ms is None:
             self.deadline_slack_at_first_schedule_ms = slack_ms
 
-    def mark_first_token(self, now_ns: int | None = None) -> None:
+    def mark_token(self, now_ns: int | None = None) -> None:
+        timestamp_ns = now_ns or time.monotonic_ns()
         if self.first_token_time_ns is None:
-            self.first_token_time_ns = now_ns or time.monotonic_ns()
+            self.first_token_time_ns = timestamp_ns
+        self.last_token_time_ns = timestamp_ns
+
+    def mark_first_token(self, now_ns: int | None = None) -> None:
+        self.mark_token(now_ns)
 
     def mark_starvation(self, threshold_ms: float) -> None:
         if self.waiting_time_ms() >= threshold_ms:
@@ -235,6 +243,8 @@ class RequestLifecycle:
     def terminal_snapshot(self) -> Dict[str, int | float | str | bool | None]:
         return {
             "terminal_state": self.state.value,
+            "request_class": self.request_class,
+            "request_role": self.request_role,
             "input_tokens": self.input_tokens,
             "requested_output_tokens": self.requested_output_tokens,
             "generated_tokens": self.generated_tokens,
@@ -248,6 +258,21 @@ class RequestLifecycle:
                 self.enqueue_time_ns, self.finish_time_ns
             ),
             "waiting_time_ms": self.waiting_time_ms(self.finish_time_ns),
+            "enqueue_to_first_schedule_ms": self._elapsed_ms(
+                self.enqueue_time_ns, self.first_scheduled_time_ns
+            ),
+            "enqueue_to_prefill_start_ms": self._elapsed_ms(
+                self.enqueue_time_ns, self.prefill_start_time_ns
+            ),
+            "prefill_start_to_end_ms": self._elapsed_ms(
+                self.prefill_start_time_ns, self.prefill_end_time_ns
+            ),
+            "prefill_end_to_first_token_ms": self._elapsed_ms(
+                self.prefill_end_time_ns, self.first_token_time_ns
+            ),
+            "first_token_to_finish_ms": self._elapsed_ms(
+                self.first_token_time_ns, self.finish_time_ns
+            ),
             "ttft_ms": self._elapsed_ms(
                 self.enqueue_time_ns, self.first_token_time_ns
             ),
@@ -292,7 +317,10 @@ class LifecycleRegistry:
         requested_output_tokens: int,
         deadline_ms: float | None = None,
         ttft_deadline_ms: float | None = None,
+        tpot_deadline_ms: float | None = None,
         e2e_deadline_ms: float | None = None,
+        request_class: str | None = None,
+        request_role: str | None = None,
     ) -> RequestLifecycle:
         if uid in self.requests:
             raise LifecycleTransitionError(f"Duplicate request uid {uid}")
@@ -302,7 +330,10 @@ class LifecycleRegistry:
             requested_output_tokens=requested_output_tokens,
             deadline_ms=deadline_ms,
             ttft_deadline_ms=ttft_deadline_ms,
+            tpot_deadline_ms=tpot_deadline_ms,
             e2e_deadline_ms=e2e_deadline_ms,
+            request_class=request_class,
+            request_role=request_role,
         )
         self.requests[uid] = lifecycle
         return lifecycle

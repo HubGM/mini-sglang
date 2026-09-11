@@ -24,6 +24,7 @@ class SchedulerConfig(EngineConfig):
     decode_reserve_ratio: float = 0.5
     max_consecutive_prefill_steps: int = 1
     default_ttft_deadline_ms: float = 200.0
+    default_tpot_deadline_ms: float = 50.0
     default_e2e_deadline_ms: float = 1200.0
     initial_prefill_ms_per_token: float = 0.15
     initial_decode_step_ms: float = 25.0
@@ -31,6 +32,12 @@ class SchedulerConfig(EngineConfig):
     max_wait_ms: float = 400.0
     aging_start_ms: float = 100.0
     aging_rate: float = 1.0
+    min_prefill_budget_per_step: int = 256
+    max_decode_only_steps: int = 2
+    prefill_urgent_threshold_ms: float = 150.0
+    hard_max_wait_ms: float = 300.0
+    min_decode_reserve_ratio: float = 0.25
+    max_decode_reserve_ratio: float = 0.65
     starvation_threshold_ms: float = 400.0
     scheduler_request_sample_rate: float = 0.1
     scheduler_max_step_records: int = 10_000

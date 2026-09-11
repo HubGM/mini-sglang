@@ -152,3 +152,42 @@ def test_terminal_snapshot_has_relative_timing_but_no_request_identity() -> None
     assert snapshot["starvation"] is True
     assert "uid" not in snapshot
     assert "prompt" not in snapshot
+
+
+def test_terminal_snapshot_reports_all_prefill_and_decode_phases() -> None:
+    lifecycle = RequestLifecycle(
+        uid=7,
+        input_tokens=64,
+        requested_output_tokens=8,
+        request_class="short",
+        request_role="prefill",
+        created_time_ns=1_000_000_000,
+    )
+    lifecycle.transition(RequestLifecycleState.WAITING, now_ns=1_010_000_000)
+    lifecycle.transition(
+        RequestLifecycleState.PREFILL_SELECTED,
+        now_ns=1_020_000_000,
+    )
+    lifecycle.transition(
+        RequestLifecycleState.PREFILL_RUNNING,
+        now_ns=1_025_000_000,
+    )
+    lifecycle.mark_prefill_end(now_ns=1_040_000_000)
+    lifecycle.transition(RequestLifecycleState.DECODING, now_ns=1_040_000_000)
+    lifecycle.mark_token(now_ns=1_045_000_000)
+    lifecycle.mark_token(now_ns=1_050_000_000)
+    lifecycle.transition(RequestLifecycleState.FINISHING, now_ns=1_055_000_000)
+    lifecycle.transition(
+        RequestLifecycleState.COMPLETED,
+        now_ns=1_060_000_000,
+    )
+
+    snapshot = lifecycle.terminal_snapshot()
+
+    assert snapshot["request_class"] == "short"
+    assert snapshot["request_role"] == "prefill"
+    assert snapshot["enqueue_to_first_schedule_ms"] == 10.0
+    assert snapshot["enqueue_to_prefill_start_ms"] == 15.0
+    assert snapshot["prefill_start_to_end_ms"] == 15.0
+    assert snapshot["prefill_end_to_first_token_ms"] == 5.0
+    assert snapshot["first_token_to_finish_ms"] == 15.0

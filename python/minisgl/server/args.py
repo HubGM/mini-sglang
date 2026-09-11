@@ -203,6 +203,8 @@ def parse_args(args: List[str], run_shell: bool = False) -> Tuple[ServerArgs, bo
             "token_budget",
             "deadline_aware",
             "deadline_aging",
+            "deadline_aging_v1",
+            "deadline_aging_v2",
         ],
         help="The engine-level token scheduling policy.",
     )
@@ -244,6 +246,12 @@ def parse_args(args: List[str], run_shell: bool = False) -> Tuple[ServerArgs, bo
         help="Default relative E2E deadline used by deadline policies.",
     )
     parser.add_argument(
+        "--default-tpot-deadline-ms",
+        type=float,
+        default=ServerArgs.default_tpot_deadline_ms,
+        help="Default decode-cadence target used by dual-SLO scheduling.",
+    )
+    parser.add_argument(
         "--initial-prefill-ms-per-token",
         type=float,
         default=ServerArgs.initial_prefill_ms_per_token,
@@ -278,6 +286,42 @@ def parse_args(args: List[str], run_shell: bool = False) -> Tuple[ServerArgs, bo
         type=float,
         default=ServerArgs.aging_rate,
         help="Priority slack reduction per millisecond after aging starts.",
+    )
+    parser.add_argument(
+        "--min-prefill-budget-per-step",
+        type=int,
+        default=ServerArgs.min_prefill_budget_per_step,
+        help="Minimum budget offered when v2 guarantees a prefill step.",
+    )
+    parser.add_argument(
+        "--max-decode-only-steps",
+        type=int,
+        default=ServerArgs.max_decode_only_steps,
+        help="Maximum contended decode-only steps before prefill service.",
+    )
+    parser.add_argument(
+        "--prefill-urgent-threshold-ms",
+        type=float,
+        default=ServerArgs.prefill_urgent_threshold_ms,
+        help="Waiting age that makes an unserved prefill request urgent.",
+    )
+    parser.add_argument(
+        "--hard-max-wait-ms",
+        type=float,
+        default=ServerArgs.hard_max_wait_ms,
+        help="Waiting age that promotes an unserved request to HARD_URGENT.",
+    )
+    parser.add_argument(
+        "--min-decode-reserve-ratio",
+        type=float,
+        default=ServerArgs.min_decode_reserve_ratio,
+        help="Lower bound for v2 dynamic decode reservation.",
+    )
+    parser.add_argument(
+        "--max-decode-reserve-ratio",
+        type=float,
+        default=ServerArgs.max_decode_reserve_ratio,
+        help="Upper bound for v2 dynamic decode reservation.",
     )
     parser.add_argument(
         "--starvation-threshold-ms",
@@ -391,6 +435,18 @@ def parse_args(args: List[str], run_shell: bool = False) -> Tuple[ServerArgs, bo
         parser.error("--service-ewma-alpha must be in (0, 1]")
     if not 0.0 <= result.scheduler_request_sample_rate <= 1.0:
         parser.error("--scheduler-request-sample-rate must be between 0 and 1")
+    if result.min_prefill_budget_per_step <= 0:
+        parser.error("--min-prefill-budget-per-step must be positive")
+    if result.max_decode_only_steps < 0:
+        parser.error("--max-decode-only-steps must be non-negative")
+    if result.hard_max_wait_ms <= 0:
+        parser.error("--hard-max-wait-ms must be positive")
+    if not 0.0 <= result.min_decode_reserve_ratio <= 1.0:
+        parser.error("--min-decode-reserve-ratio must be between 0 and 1")
+    if not 0.0 <= result.max_decode_reserve_ratio <= 1.0:
+        parser.error("--max-decode-reserve-ratio must be between 0 and 1")
+    if result.min_decode_reserve_ratio > result.max_decode_reserve_ratio:
+        parser.error("dynamic decode reservation bounds are reversed")
     logger = init_logger(__name__)
     logger.info(f"Parsed arguments:\n{result}")
     return result, run_shell

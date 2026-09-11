@@ -19,7 +19,10 @@ class SamplingParams:
     max_tokens: int = 1024
     deadline_ms: float | None = None
     ttft_deadline_ms: float | None = None
+    tpot_deadline_ms: float | None = None
     e2e_deadline_ms: float | None = None
+    request_class: str | None = None
+    request_role: str | None = None
 
 
 class Req:

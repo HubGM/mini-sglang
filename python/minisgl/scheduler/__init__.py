@@ -17,9 +17,12 @@ from .policy import (
     SchedulingPolicyConfig,
     UpstreamDefaultPolicy,
     UpstreamPolicyFatalError,
+    create_scheduling_policy,
+    dual_slo_config_hash,
 )
 from .advanced_policy import (
     DeadlineAgingPolicy,
+    DeadlineAgingV2Policy,
     DeadlineAwarePolicy,
     ServiceTimeEstimator,
     TokenBudgetPolicy,
@@ -29,6 +32,7 @@ from .scheduler import Scheduler
 __all__ = [
     "BaseSchedulingPolicy",
     "DeadlineAgingPolicy",
+    "DeadlineAgingV2Policy",
     "DeadlineAwarePolicy",
     "LifecycleRegistry",
     "LifecycleTransitionError",
@@ -48,4 +52,6 @@ __all__ = [
     "TokenBudgetPolicy",
     "UpstreamDefaultPolicy",
     "UpstreamPolicyFatalError",
+    "create_scheduling_policy",
+    "dual_slo_config_hash",
 ]

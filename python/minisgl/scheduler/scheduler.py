@@ -38,6 +38,7 @@ from .policy import (
     SchedulingPolicyConfig,
     UpstreamDefaultPolicy,
     create_scheduling_policy,
+    dual_slo_config_hash,
 )
 from .prefill import ChunkedReq, PrefillManager
 from .table import TableManager
@@ -134,6 +135,7 @@ class Scheduler(SchedulerIOMixin):
             decode_reserve_ratio=config.decode_reserve_ratio,
             max_consecutive_prefill_steps=config.max_consecutive_prefill_steps,
             default_ttft_deadline_ms=config.default_ttft_deadline_ms,
+            default_tpot_deadline_ms=config.default_tpot_deadline_ms,
             default_e2e_deadline_ms=config.default_e2e_deadline_ms,
             initial_prefill_ms_per_token=config.initial_prefill_ms_per_token,
             initial_decode_step_ms=config.initial_decode_step_ms,
@@ -141,6 +143,12 @@ class Scheduler(SchedulerIOMixin):
             max_wait_ms=config.max_wait_ms,
             aging_start_ms=config.aging_start_ms,
             aging_rate=config.aging_rate,
+            min_prefill_budget_per_step=config.min_prefill_budget_per_step,
+            max_decode_only_steps=config.max_decode_only_steps,
+            prefill_urgent_threshold_ms=config.prefill_urgent_threshold_ms,
+            hard_max_wait_ms=config.hard_max_wait_ms,
+            min_decode_reserve_ratio=config.min_decode_reserve_ratio,
+            max_decode_reserve_ratio=config.max_decode_reserve_ratio,
         )
         self.scheduling_policy = create_scheduling_policy(
             config.scheduling_policy, policy_config
@@ -151,6 +159,7 @@ class Scheduler(SchedulerIOMixin):
             failure_threshold=config.policy_failure_threshold,
         )
         self._metrics_config = {
+            "policy_config_hash": dual_slo_config_hash(policy_config),
             "starvation_threshold_ns": int(
                 config.starvation_threshold_ms * 1_000_000
             ),
@@ -168,6 +177,7 @@ class Scheduler(SchedulerIOMixin):
         self._released_uids: set[int] = set()
         self.step_id = 0
         self.default_ttft_deadline_ms = config.default_ttft_deadline_ms
+        self.default_tpot_deadline_ms = config.default_tpot_deadline_ms
         self.default_e2e_deadline_ms = config.default_e2e_deadline_ms
         self.starvation_threshold_ms = config.starvation_threshold_ms
 
@@ -217,7 +227,11 @@ class Scheduler(SchedulerIOMixin):
         max_seq_len = self.engine.max_seq_len
         for i, req in enumerate(batch.reqs):
             lifecycle = self.lifecycle_registry.get(req.uid)
-            if lifecycle is not None and batch.is_prefill:
+            if (
+                lifecycle is not None
+                and batch.is_prefill
+                and not isinstance(req, ChunkedReq)
+            ):
                 lifecycle.mark_prefill_end()
             if req.uid in self._cancelled_uids:
                 if req.uid not in ongoing_uids:
@@ -233,7 +247,7 @@ class Scheduler(SchedulerIOMixin):
             next_token_id = next_tokens_cpu[i]
             req.append_host(next_token_id.unsqueeze(0))
             if lifecycle is not None:
-                lifecycle.mark_first_token()
+                lifecycle.mark_token()
                 lifecycle.add_generated_token()
             next_token = int(next_token_id.item())
             finished = req.remain_len <= 0
@@ -291,6 +305,11 @@ class Scheduler(SchedulerIOMixin):
                     if msg.sampling_params.ttft_deadline_ms is not None
                     else self.default_ttft_deadline_ms
                 ),
+                tpot_deadline_ms=(
+                    msg.sampling_params.tpot_deadline_ms
+                    if msg.sampling_params.tpot_deadline_ms is not None
+                    else self.default_tpot_deadline_ms
+                ),
                 e2e_deadline_ms=(
                     msg.sampling_params.e2e_deadline_ms
                     if msg.sampling_params.e2e_deadline_ms is not None
@@ -300,6 +319,8 @@ class Scheduler(SchedulerIOMixin):
                         else self.default_e2e_deadline_ms
                     )
                 ),
+                request_class=msg.sampling_params.request_class,
+                request_role=msg.sampling_params.request_role,
             )
             if msg.uid in self._cancelled_uids:
                 lifecycle.request_cancellation("cancelled_before_admission")
@@ -556,6 +577,15 @@ class Scheduler(SchedulerIOMixin):
                             else self.default_e2e_deadline_ms
                         )
                     ),
+                    tpot_deadline_ms=(
+                        lifecycle.tpot_deadline_ms
+                        if lifecycle.tpot_deadline_ms is not None
+                        else self.default_tpot_deadline_ms
+                    ),
+                    last_token_time_ns=lifecycle.last_token_time_ns,
+                    is_chunk_continuation=(
+                        pending.chunked_req is not None
+                    ),
                 )
             )
             seen.add(pending.uid)
@@ -591,6 +621,13 @@ class Scheduler(SchedulerIOMixin):
                             else self.default_e2e_deadline_ms
                         )
                     ),
+                    tpot_deadline_ms=(
+                        lifecycle.tpot_deadline_ms
+                        if lifecycle.tpot_deadline_ms is not None
+                        else self.default_tpot_deadline_ms
+                    ),
+                    last_token_time_ns=lifecycle.last_token_time_ns,
+                    is_chunk_continuation=False,
                 )
             )
         return tuple(result)

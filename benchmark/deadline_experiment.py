@@ -27,11 +27,16 @@ POLICIES = (
     "deadline_aware",
     "deadline_aging",
 )
+SUPPORTED_POLICIES = POLICIES + (
+    "deadline_aging_v1",
+    "deadline_aging_v2",
+)
 WORKLOADS = (
     "mixed",
     "long-prefill-interference",
     "starvation-stress",
 )
+SUPPORTED_WORKLOADS = WORKLOADS + ("deadline-induced-starvation",)
 
 
 @dataclass(frozen=True)
@@ -42,6 +47,7 @@ class WorkItem:
     output_len: int
     scheduled_offset_s: float
     prompt: str
+    request_role: str = "unspecified"
 
 
 @dataclass(frozen=True)
@@ -65,6 +71,7 @@ class RequestMetric:
     terminal_reason: str | None
     error_code: str | None
     slo_good: bool
+    request_role: str = "unspecified"
 
 
 def percentile(values: Iterable[float], quantile: float) -> float | None:
@@ -94,6 +101,7 @@ def trace_fingerprint(items: Iterable[WorkItem]) -> str:
         {
             "request_hash": item.request_hash,
             "request_class": item.request_class,
+            "request_role": item.request_role,
             "input_len": item.input_len,
             "output_len": item.output_len,
             "scheduled_offset_s": item.scheduled_offset_s,
@@ -131,6 +139,12 @@ def _trace_shape(workload: str, seed: int) -> list[tuple[str, int, int, float]]:
         ]
         return sorted(short + long, key=lambda item: (item[3], item[0]))
 
+    if workload == "deadline-induced-starvation":
+        short = [("short", 64, 24, index * 0.06) for index in range(30)]
+        medium = [("medium", 512, 32, 0.15 + index * 0.30) for index in range(6)]
+        long = [("long", 1536, 24, 0.25 + index * 0.55) for index in range(4)]
+        return sorted(short + medium + long, key=lambda item: (item[3], item[0]))
+
     raise ValueError(f"Unsupported workload: {workload}")
 
 
@@ -145,6 +159,13 @@ def build_workload(tokenizer, workload: str, seed: int) -> list[WorkItem]:
                     f"{workload}:{seed}:{index}".encode()
                 ).hexdigest()[:16],
                 request_class=request_class,
+                request_role=(
+                    "prefill"
+                    if request_class in {"long", "long-prefill"}
+                    else "decode"
+                    if request_class in {"short", "decode"}
+                    else "mixed"
+                ),
                 input_len=input_len,
                 output_len=output_len,
                 scheduled_offset_s=offset,
@@ -232,7 +253,10 @@ async def run_one(
                 "ignore_eos": True,
                 "stream": True,
                 "ttft_deadline_ms": SLO_TTFT_MS,
+                "tpot_deadline_ms": SLO_TPOT_MS,
                 "e2e_deadline_ms": SLO_E2E_MS,
+                "request_class": item.request_class,
+                "request_role": item.request_role,
             },
         ) as response:
             status_code = response.status_code
@@ -283,6 +307,7 @@ async def run_one(
     return RequestMetric(
         request_hash=item.request_hash,
         request_class=item.request_class,
+        request_role=item.request_role,
         input_len=item.input_len,
         expected_output_tokens=item.output_len,
         output_tokens=output_tokens,
@@ -421,6 +446,52 @@ def summarize(
         metric.error_code in {"ReadTimeout", "WriteTimeout", "PoolTimeout"}
         for metric in metrics
     )
+
+    def normalized_class(metric: RequestMetric) -> str:
+        if metric.request_class in {"short", "decode"}:
+            return "short"
+        if metric.request_class in {"long", "long-prefill"}:
+            return "long"
+        return "medium"
+
+    def grouped_metrics(records: list[RequestMetric]) -> dict[str, Any]:
+        completed = [metric for metric in records if metric in successful]
+
+        def values(name: str) -> dict[str, float | None]:
+            observed = [
+                float(value)
+                for metric in completed
+                if (value := getattr(metric, name)) is not None
+            ]
+            return {
+                "p50": percentile(observed, 0.50),
+                "p95": percentile(observed, 0.95),
+                "p99": percentile(observed, 0.99),
+            }
+
+        return {
+            "requests": len(records),
+            "successful_requests": len(completed),
+            "ttft_ms": values("ttft_ms"),
+            "tpot_ms": values("tpot_ms"),
+            "e2e_ms": values("e2e_ms"),
+            "client_queue_delay_ms": values("queue_delay_ms"),
+        }
+
+    per_class = {
+        request_class: grouped_metrics(
+            [metric for metric in metrics if normalized_class(metric) == request_class]
+        )
+        for request_class in ("short", "medium", "long")
+        if any(normalized_class(metric) == request_class for metric in metrics)
+    }
+    per_role = {
+        role: grouped_metrics(
+            [metric for metric in metrics if metric.request_role == role]
+        )
+        for role in ("prefill", "decode", "mixed")
+        if any(metric.request_role == role for metric in metrics)
+    }
     return {
         "requests": len(metrics),
         "successful_requests": len(successful),
@@ -456,6 +527,8 @@ def summarize(
         "tpot_ms": distribution("tpot_ms"),
         "e2e_ms": distribution("e2e_ms"),
         "client_queue_delay_ms": distribution("queue_delay_ms"),
+        "per_class": per_class,
+        "per_role": per_role,
         "long_request_completion_rate": (
             len(long_success) / len(long_requests) if long_requests else None
         ),
@@ -493,6 +566,7 @@ async def warm_up(
                 item=WorkItem(
                     request_hash=item.request_hash,
                     request_class="warmup",
+                    request_role="warmup",
                     input_len=item.input_len,
                     output_len=8,
                     scheduled_offset_s=0.0,
@@ -511,7 +585,7 @@ async def warm_up(
 async def run(args: argparse.Namespace) -> dict[str, Any]:
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
-    run_id = f"{args.workload}-{args.policy}-r{args.repeat}"
+    run_id = args.run_id or f"{args.workload}-{args.policy}-r{args.repeat}"
     summary_path = output_dir / f"{run_id}.summary.json"
     if args.resume and summary_path.exists():
         existing = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -629,9 +703,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--base-url", default="http://127.0.0.1:1919")
     parser.add_argument("--model", default="/models/Qwen3-8B")
     parser.add_argument("--tokenizer", default="/models/Qwen3-8B")
-    parser.add_argument("--workload", choices=WORKLOADS, required=True)
-    parser.add_argument("--policy", choices=POLICIES, required=True)
+    parser.add_argument("--workload", choices=SUPPORTED_WORKLOADS, required=True)
+    parser.add_argument("--policy", choices=SUPPORTED_POLICIES, required=True)
     parser.add_argument("--repeat", type=int, choices=(1, 2, 3), required=True)
+    parser.add_argument("--run-id")
     parser.add_argument("--seed", type=int, default=20260909)
     parser.add_argument("--max-concurrency", type=int, default=64)
     parser.add_argument("--timeout", type=float, default=120.0)

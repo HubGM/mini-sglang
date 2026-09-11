@@ -86,7 +86,10 @@ class OpenAICompletionRequest(BaseModel):
     ignore_eos: bool = False
     deadline_ms: float | None = None
     ttft_deadline_ms: float | None = None
+    tpot_deadline_ms: float | None = None
     e2e_deadline_ms: float | None = None
+    request_class: str | None = None
+    request_role: str | None = None
 
 
 class ModelCard(BaseModel):
@@ -389,7 +392,10 @@ async def v1_completions(req: OpenAICompletionRequest, request: Request):
                 max_tokens=req.max_tokens,
                 deadline_ms=req.deadline_ms,
                 ttft_deadline_ms=req.ttft_deadline_ms,
+                tpot_deadline_ms=req.tpot_deadline_ms,
                 e2e_deadline_ms=req.e2e_deadline_ms,
+                request_class=req.request_class,
+                request_role=req.request_role,
             ),
         )
     )

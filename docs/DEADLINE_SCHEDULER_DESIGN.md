@@ -2,12 +2,13 @@
 
 ## Scope
 
-This change adds three opt-in engine scheduling policies while preserving
+This change adds opt-in engine scheduling policies while preserving
 `upstream_default` as the default and correctness control:
 
 - `token_budget`
 - `deadline_aware`
-- `deadline_aging`
+- `deadline_aging_v1` (legacy alias: `deadline_aging`)
+- `deadline_aging_v2`
 
 The policy boundary selects local Mini-SGLang prefill or decode work. It does
 not route requests across Workers, execute model kernels, or own KV pages.
@@ -126,3 +127,13 @@ final aggregate is written before the process exits.
   same-batch prefill/decode.
 - The formal results show a TTFT versus TPOT tradeoff and do not establish a
   generally superior default policy. See `DEADLINE_SCHEDULER_EXPERIMENT.md`.
+
+## V2 Extension
+
+Prompt 6B-R2 keeps the preceding v1 mechanism frozen and adds a phase-aware
+dual-SLO policy. Pre-first-token work uses only TTFT slack; active decode uses
+E2E and TPOT cadence slack. Finite decode-only service, hard-urgent FIFO,
+chunk-continuation deferral, and bounded dynamic decode reservation address
+the measured v1 TTFT regression. The full mechanism and DEV/HOLDOUT protocol
+are specified in `DUAL_SLO_SCHEDULER.md`; the frozen evidence is in
+`TTFT_REGRESSION_DIAGNOSIS.md`.

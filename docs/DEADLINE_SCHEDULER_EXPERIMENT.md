@@ -165,3 +165,22 @@ The tracked aggregate is
 `benchmark/examples/deadline_scheduler_summary.json`. Per-request summaries,
 step records, runtime logs, trace fingerprints, and correctness hashes remain
 outside Git under the runtime directory.
+
+## Prompt 6B-R2 Result
+
+The policy reported above is retained as `deadline_aging_v1`. Its fixed decode
+protection and phase-agnostic slack caused the documented PRE_FIRST_TOKEN
+delay. `deadline_aging_v2` adds phase-specific Dual-SLO slack, a finite
+prefill-service guarantee, hard max-wait FIFO, urgent-over-continuation
+ordering, and bounded dynamic decode reservation.
+
+The replacement was tuned on a separate DEV seed with three candidates, then
+frozen under config hash
+`3007c3ac046d7c85842d0254162d36ddef8277befe9b6747165a93ef1d5b20b0`.
+Its untouched three-seed HOLDOUT completed 27/27 VALID runs and 900/900
+requests. Relative to v1, aggregate TTFT p95 improved by 31.5% to 51.9%,
+maximum waiting improved by 17.5% to 84.5%, and mixed starvation fell from
+five total events to zero. Relative to upstream, predeclared short-request
+TTFT p95 improved by 17.8% to 34.2%, while overall TTFT p95 still regressed by
+39.3% to 41.1%. See `TTFT_FAIRNESS_FINAL_EXPERIMENT.md` for the full HOLDOUT
+statistics and the resume-safe claim boundary.

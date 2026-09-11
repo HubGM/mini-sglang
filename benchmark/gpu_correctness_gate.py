@@ -47,11 +47,20 @@ def main() -> None:
             "token_budget",
             "deadline_aware",
             "deadline_aging",
+            "deadline_aging_v1",
+            "deadline_aging_v2",
         ),
         default="upstream_default",
     )
     parser.add_argument("--max-step-tokens", type=int, default=512)
     parser.add_argument("--max-prefill-chunk-tokens", type=int, default=256)
+    parser.add_argument("--max-consecutive-prefill-steps", type=int, default=1)
+    parser.add_argument("--min-prefill-budget-per-step", type=int, default=256)
+    parser.add_argument("--max-decode-only-steps", type=int, default=2)
+    parser.add_argument("--prefill-urgent-threshold-ms", type=float, default=150.0)
+    parser.add_argument("--hard-max-wait-ms", type=float, default=300.0)
+    parser.add_argument("--min-decode-reserve-ratio", type=float, default=0.25)
+    parser.add_argument("--max-decode-reserve-ratio", type=float, default=0.65)
     args = parser.parse_args()
 
     torch.manual_seed(args.seed)
@@ -66,9 +75,16 @@ def main() -> None:
         max_step_tokens=args.max_step_tokens,
         max_prefill_chunk_tokens=args.max_prefill_chunk_tokens,
         decode_reserve_ratio=0.5,
-        max_consecutive_prefill_steps=1,
+        max_consecutive_prefill_steps=args.max_consecutive_prefill_steps,
         default_ttft_deadline_ms=200.0,
+        default_tpot_deadline_ms=50.0,
         default_e2e_deadline_ms=1200.0,
+        min_prefill_budget_per_step=args.min_prefill_budget_per_step,
+        max_decode_only_steps=args.max_decode_only_steps,
+        prefill_urgent_threshold_ms=args.prefill_urgent_threshold_ms,
+        hard_max_wait_ms=args.hard_max_wait_ms,
+        min_decode_reserve_ratio=args.min_decode_reserve_ratio,
+        max_decode_reserve_ratio=args.max_decode_reserve_ratio,
     )
     try:
         outputs = llm.generate(
@@ -77,6 +93,7 @@ def main() -> None:
                 max_tokens=16,
                 temperature=0.0,
                 ttft_deadline_ms=200.0,
+                tpot_deadline_ms=50.0,
                 e2e_deadline_ms=1200.0,
             ),
         )

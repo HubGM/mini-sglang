@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import enum
+import hashlib
 import math
 import time
 from abc import ABC, abstractmethod
@@ -27,6 +28,7 @@ class SchedulingPolicyConfig:
     decode_reserve_ratio: float = 0.5
     max_consecutive_prefill_steps: int = 1
     default_ttft_deadline_ms: float = 200.0
+    default_tpot_deadline_ms: float = 50.0
     default_e2e_deadline_ms: float = 1200.0
     initial_prefill_ms_per_token: float = 0.15
     initial_decode_step_ms: float = 25.0
@@ -34,6 +36,33 @@ class SchedulingPolicyConfig:
     max_wait_ms: float = 400.0
     aging_start_ms: float = 100.0
     aging_rate: float = 1.0
+    min_prefill_budget_per_step: int = 256
+    max_decode_only_steps: int = 2
+    prefill_urgent_threshold_ms: float = 150.0
+    hard_max_wait_ms: float = 300.0
+    min_decode_reserve_ratio: float = 0.25
+    max_decode_reserve_ratio: float = 0.65
+
+
+DUAL_SLO_CONFIG_FIELDS = (
+    "max_consecutive_prefill_steps",
+    "min_prefill_budget_per_step",
+    "max_decode_only_steps",
+    "prefill_urgent_threshold_ms",
+    "hard_max_wait_ms",
+    "min_decode_reserve_ratio",
+    "max_decode_reserve_ratio",
+)
+
+
+def dual_slo_config_hash(config: SchedulingPolicyConfig) -> str:
+    payload = {
+        field: getattr(config, field) for field in DUAL_SLO_CONFIG_FIELDS
+    }
+    encoded = json.dumps(
+        payload, separators=(",", ":"), sort_keys=True
+    ).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -48,6 +77,9 @@ class RequestSchedulingInfo:
     generated_tokens: int
     ttft_deadline_ms: float
     e2e_deadline_ms: float
+    tpot_deadline_ms: float = 50.0
+    last_token_time_ns: int | None = None
+    is_chunk_continuation: bool = False
 
     def age_ms(self, now_ns: int) -> float:
         return max(0, now_ns - self.enqueue_time_ns) / 1_000_000
@@ -84,6 +116,13 @@ class SchedulingDecision:
     minimum_slack_ms: float | None = None
     urgent_request_count: int = 0
     request_slack_ms: Tuple[Tuple[int, float], ...] = ()
+    pre_first_token_count: int = 0
+    post_first_token_count: int = 0
+    prefill_urgent_request_count: int = 0
+    hard_urgent_request_count: int = 0
+    consecutive_decode_only_steps: int = 0
+    dynamic_decode_reserve_ratio: float | None = None
+    chunk_continuation_deferred: bool = False
 
 
 class BaseSchedulingPolicy(ABC):
@@ -211,6 +250,7 @@ def create_scheduling_policy(
         return UpstreamDefaultPolicy()
     from .advanced_policy import (
         DeadlineAgingPolicy,
+        DeadlineAgingV2Policy,
         DeadlineAwarePolicy,
         TokenBudgetPolicy,
     )
@@ -219,6 +259,8 @@ def create_scheduling_policy(
         TokenBudgetPolicy.name: TokenBudgetPolicy,
         DeadlineAwarePolicy.name: DeadlineAwarePolicy,
         DeadlineAgingPolicy.name: DeadlineAgingPolicy,
+        "deadline_aging": DeadlineAgingPolicy,
+        DeadlineAgingV2Policy.name: DeadlineAgingV2Policy,
     }
     if policy_type := policies.get(name):
         return policy_type(config or SchedulingPolicyConfig())
@@ -410,6 +452,7 @@ class PolicyController:
 @dataclass
 class SchedulingMetrics:
     policy_name: str
+    policy_config_hash: str | None = None
     starvation_threshold_ns: int = 400_000_000
     request_sample_rate: float = 0.1
     max_step_records: int = 10_000
@@ -438,6 +481,12 @@ class SchedulingMetrics:
     prefill_chunk_count: int = 0
     minimum_slack_ms: float | None = None
     max_urgent_requests: int = 0
+    max_prefill_urgent_requests: int = 0
+    max_hard_urgent_requests: int = 0
+    max_consecutive_decode_only_steps: int = 0
+    dynamic_decode_reserve_total: float = 0.0
+    dynamic_decode_reserve_count: int = 0
+    chunk_continuation_deferred_count: int = 0
     step_records: list[dict[str, Any]] = field(default_factory=list)
     request_samples: list[dict[str, Any]] = field(default_factory=list)
     dropped_step_records: int = 0
@@ -484,6 +533,25 @@ class SchedulingMetrics:
         self.max_urgent_requests = max(
             self.max_urgent_requests, decision.urgent_request_count
         )
+        self.max_prefill_urgent_requests = max(
+            self.max_prefill_urgent_requests,
+            decision.prefill_urgent_request_count,
+        )
+        self.max_hard_urgent_requests = max(
+            self.max_hard_urgent_requests,
+            decision.hard_urgent_request_count,
+        )
+        self.max_consecutive_decode_only_steps = max(
+            self.max_consecutive_decode_only_steps,
+            decision.consecutive_decode_only_steps,
+        )
+        if decision.dynamic_decode_reserve_ratio is not None:
+            self.dynamic_decode_reserve_total += (
+                decision.dynamic_decode_reserve_ratio
+            )
+            self.dynamic_decode_reserve_count += 1
+        if decision.chunk_continuation_deferred:
+            self.chunk_continuation_deferred_count += 1
         if fallback_reason:
             self.fallback_count += 1
             self.fallback_reasons[fallback_reason] = (
@@ -516,6 +584,22 @@ class SchedulingMetrics:
             "max_waiting_age_ms": maximum_waiting_age_ms,
             "minimum_slack_ms": decision.minimum_slack_ms,
             "urgent_request_count": decision.urgent_request_count,
+            "prefill_urgent_request_count": (
+                decision.prefill_urgent_request_count
+            ),
+            "hard_urgent_request_count": decision.hard_urgent_request_count,
+            "pre_first_token_count": decision.pre_first_token_count,
+            "post_first_token_count": decision.post_first_token_count,
+            "consecutive_decode_only_steps": (
+                decision.consecutive_decode_only_steps
+            ),
+            "dynamic_decode_reserve_ratio": (
+                decision.dynamic_decode_reserve_ratio
+            ),
+            "chunk_continuation_deferred": (
+                decision.chunk_continuation_deferred
+            ),
+            "reason_codes": list(decision.reason_codes),
             "scheduler_decision_us": decision.decision_latency_ns / 1_000,
         }
         if len(self.step_records) < self.max_step_records:
@@ -567,6 +651,7 @@ class SchedulingMetrics:
         count = self.decision_count
         return {
             "policy": self.policy_name,
+            "policy_config_hash": self.policy_config_hash,
             "decision_count": count,
             "decision_latency_mean_us": (
                 self.total_decision_latency_ns / count / 1_000 if count else 0.0
@@ -614,6 +699,20 @@ class SchedulingMetrics:
             ),
             "minimum_slack_ms": self.minimum_slack_ms,
             "max_urgent_requests": self.max_urgent_requests,
+            "max_prefill_urgent_requests": self.max_prefill_urgent_requests,
+            "max_hard_urgent_requests": self.max_hard_urgent_requests,
+            "max_consecutive_decode_only_steps": (
+                self.max_consecutive_decode_only_steps
+            ),
+            "mean_dynamic_decode_reserve_ratio": (
+                self.dynamic_decode_reserve_total
+                / self.dynamic_decode_reserve_count
+                if self.dynamic_decode_reserve_count
+                else None
+            ),
+            "chunk_continuation_deferred_count": (
+                self.chunk_continuation_deferred_count
+            ),
             "step_records": self.step_records,
             "dropped_step_records": self.dropped_step_records,
             "request_samples": self.request_samples,

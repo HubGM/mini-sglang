@@ -394,6 +394,50 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
         if not health_before.get("ready"):
             raise RuntimeError("worker_not_ready")
 
+        if args.smoke_requests:
+            results, stress_summary = await run_stress_ratio(
+                client,
+                args,
+                args.smoke_cancellation_ratio,
+                0,
+            )
+            health_after = await wait_until_idle(
+                client, args.base_url, args.drain_timeout
+            )
+            failed_delta = (
+                health_after.get("failed_count", 0)
+                - health_before.get("failed_count", 0)
+            )
+            scheduler_idle = (
+                health_after.get("waiting_count") == 0
+                and health_after.get("running_count") == 0
+            )
+            return {
+                "schema_version": 1,
+                "seed": args.seed,
+                "policy": args.policy,
+                "model": Path(args.model).name,
+                "mode": "compatibility_smoke",
+                "health_before": health_before,
+                "stress": {
+                    "aggregate": summarize_results(results),
+                    "ratios": [stress_summary],
+                },
+                "health_after": health_after,
+                "scheduler_failed_delta": failed_delta,
+                "gates": {
+                    "request_count_exact": len(results) == args.smoke_requests,
+                    "stress_terminal_count": stress_summary["gate_passed"],
+                    "final_waiting_zero": health_after.get("waiting_count") == 0,
+                    "final_running_zero": health_after.get("running_count") == 0,
+                    "scheduler_ready": health_after.get("ready") is True,
+                    "scheduler_fatal_absent": health_after.get("fatal_error") is None,
+                    "failed_delta_zero": failed_delta == 0,
+                    "orphan_request_zero": scheduler_idle,
+                },
+                "raw_request_records_stored": False,
+            }
+
         stage_results, stage_gate = await run_stage_gate(client, args)
         survivor_gate = await run_survivor_gate(client, args)
         stress_summaries = []
@@ -427,7 +471,7 @@ async def run(args: argparse.Namespace) -> dict[str, Any]:
     return {
         "schema_version": 1,
         "seed": args.seed,
-        "policy": "upstream_default",
+        "policy": args.policy,
         "model": Path(args.model).name,
         "health_before": health_before,
         "stage_gate": stage_gate,
@@ -462,6 +506,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="/models/Qwen3-8B")
     parser.add_argument("--seed", type=int, default=20260719)
     parser.add_argument("--requests-per-ratio", type=int, default=25)
+    parser.add_argument("--policy", default="upstream_default")
+    parser.add_argument("--smoke-requests", type=int, default=0)
+    parser.add_argument("--smoke-cancellation-ratio", type=int, default=30)
     parser.add_argument("--concurrency", type=int, default=12)
     parser.add_argument("--request-timeout", type=float, default=60.0)
     parser.add_argument("--drain-timeout", type=float, default=30.0)
@@ -472,6 +519,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+    if args.smoke_requests:
+        args.requests_per_ratio = args.smoke_requests
     try:
         summary = asyncio.run(
             asyncio.wait_for(run(args), timeout=args.total_timeout)
@@ -480,7 +529,7 @@ def main() -> None:
         summary = {
             "schema_version": 1,
             "seed": args.seed,
-            "policy": "upstream_default",
+            "policy": args.policy,
             "fatal_error": type(exc).__name__,
             "raw_request_records_stored": False,
         }

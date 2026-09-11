@@ -92,3 +92,19 @@ not be described as pure framework overhead.
 
 The optimization is therefore a validated scheduling mechanism, but the
 current policy parameters are not a production tuning recommendation.
+
+## Dual-SLO Fairness Follow-Up
+
+Prompt 6B-R2 preserves the preceding matrix as the `deadline_aging_v1`
+baseline and introduces `deadline_aging_v2`. The new policy separates
+PRE_FIRST_TOKEN TTFT slack from POST_FIRST_TOKEN E2E/TPOT slack, guarantees a
+minimum prefill opportunity after a bounded decode-only streak, promotes old
+waiters into hard-urgent FIFO, and uses bounded dynamic decode reservation.
+
+In a fresh 27-run, three-repeat Qwen3-8B HOLDOUT, v2 reduced short-request TTFT
+p95 by 17.8% to 34.2% relative to upstream and removed all five request-level
+starvation events introduced by v1. Completed-RPS regression remained between
+0.9% and 2.6%. Aggregate TTFT p95 still regressed by 39.3% to 41.1% because
+long-request TTFT increased, and v2 did not preserve v1's TPOT improvement.
+The detailed result and claim boundary are in
+`TTFT_FAIRNESS_FINAL_EXPERIMENT.md`.
